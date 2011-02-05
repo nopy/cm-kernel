@@ -60,4 +60,6 @@ struct msm_pmem_setting{
 	resource_size_t ram_console_size;
 };
 
+#define GPIO_FLASH_DETECT	20
+
 #endif //__ARCH_ARM_MACH_MSM_BOARD_GALAXY_H

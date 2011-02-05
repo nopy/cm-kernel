@@ -49,6 +49,7 @@
 #include "board-galaxy.h"
 #include "proc_comm.h"
 
+extern int galaxy_init_mmc(void);
 
 static struct msm_pmem_setting pmem_settings = {
 	.pmem_start = MSM_PMEM_MDP_BASE,
@@ -84,22 +85,6 @@ static struct android_pmem_platform_data android_pmem_pdata = {
 	.size = MSM_PMEM_MDP_SIZE,
 	.no_allocator = 0,
 	.cached = 1,
-};
-
-static struct android_pmem_platform_data android_pmem_gpu0_pdata = {
-	.name = "pmem_gpu0",
-	.start = MSM_PMEM_GPU0_BASE,
-	.size = MSM_PMEM_GPU0_SIZE,
-	.no_allocator = 1,
-	.cached = 0,
-};
-
-static struct android_pmem_platform_data android_pmem_gpu1_pdata = {
-	.name = "pmem_gpu1",
-	.start = MSM_PMEM_GPU1_BASE,
-	.size = MSM_PMEM_GPU1_SIZE,
-	.no_allocator = 1,
-	.cached = 0,
 };
 
 static struct android_pmem_platform_data android_pmem_camera_pdata = {
@@ -360,6 +345,8 @@ static void galaxy_phy_reset(void)
 static void __init galaxy_init(void)
 {
 	msm_add_mem_devices(&pmem_settings);
+
+	galaxy_init_mmc();
 
 	msm_device_hsusb.dev.platform_data = &msm_hsusb_pdata;
 	msm_acpu_clock_init(&galaxy_clock_data);
