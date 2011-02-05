@@ -80,8 +80,8 @@ struct android_pmem_platform_data android_pmem_kernel_ebi1_pdata = {
 
 static struct android_pmem_platform_data android_pmem_pdata = {
 	.name = "pmem",
-//	.start = MSM_PMEM_MDP_BASE,
-//	.size = MSM_PMEM_MDP_SIZE,
+	.start = MSM_PMEM_MDP_BASE,
+	.size = MSM_PMEM_MDP_SIZE,
 	.no_allocator = 0,
 	.cached = 1,
 };
@@ -125,18 +125,6 @@ static struct platform_device android_pmem_adsp_device = {
 	.dev = { .platform_data = &android_pmem_adsp_pdata },
 };
 
-static struct platform_device android_pmem_gpu0_device = {
-	.name = "android_pmem",
-	.id = 2,
-	.dev = { .platform_data = &android_pmem_gpu0_pdata },
-};
-
-static struct platform_device android_pmem_gpu1_device = {
-	.name = "android_pmem",
-	.id = 3,
-	.dev = { .platform_data = &android_pmem_gpu1_pdata },
-};
-
 static struct platform_device android_pmem_camera_device = {
 	.name = "android_pmem",
 	.id = 2,
@@ -151,6 +139,8 @@ static struct platform_device android_pmem_kernel_ebi1_device = {
 
 static struct resource ram_console_resource[] = {
 	{
+		.start	= MSM_RAM_CONSOLE_BASE,
+		.end	= MSM_RAM_CONSOLE_BASE + MSM_RAM_CONSOLE_SIZE - 1,
 		.flags	= IORESOURCE_MEM,
 	}
 };
@@ -184,7 +174,7 @@ static struct platform_device usb_mass_storage_device = {
 	},
 };
 
-static char *usb_functions[] = { "usb_mass_storage", "adb" };
+static char *usb_functions[] = { "usb_mass_storage",};
 static char *usb_functions_adb[] = { "usb_mass_storage", "adb" };
 
 static struct android_usb_product usb_products[] = {
@@ -204,7 +194,7 @@ static struct android_usb_platform_data android_usb_pdata = {
 	.vendor_id = 0x04E8,
 	.product_id = 0x6640,
 	.version = 0x0100,
-	.serial_number = "42",
+	.serial_number = "I7500KzEpBWA",
 	.product_name = "I7500",
 	.manufacturer_name = "SAMSUNG",
 	.num_products = ARRAY_SIZE(usb_products),
@@ -260,8 +250,8 @@ static struct resource resources_hw3d[] = {
 	},
 	{
 		.flags	= IORESOURCE_MEM,
-		.start  = MSM_PMEM_GPU1_BASE,
-		.end    = MSM_PMEM_GPU1_BASE+MSM_PMEM_GPU1_SIZE-1,
+//		.start  = MSM_PMEM_GPU1_BASE,
+//		.end    = MSM_PMEM_GPU1_BASE+MSM_PMEM_GPU1_SIZE-1,
 		.name	= "ebi",
 	},
 	{
@@ -321,12 +311,13 @@ void __init msm_add_mem_devices(struct msm_pmem_setting *setting)
 		platform_device_register(&android_pmem_kernel_ebi1_device);
 	}
 
-	if (setting->ram_console_size) {
-		ram_console_resource[0].start = setting->ram_console_start;
-		ram_console_resource[0].end = setting->ram_console_start
-			+ setting->ram_console_size - 1;
-		platform_device_register(&ram_console_device);
-	}
+//	if (setting->ram_console_size) {
+//		ram_console_resource[0].start = setting->ram_console_start;
+//		ram_console_resource[0].end = setting->ram_console_start
+//			+ setting->ram_console_size - 1;
+//		platform_device_register(&ram_console_device);
+//	}
+//	platform_device_register(&ram_console_device);
 }
 
 static void __init msm_fb_add_devices(void)
@@ -346,6 +337,7 @@ static struct platform_device *devices[] __initdata = {
 	&usb_mass_storage_device,
 	&android_usb_device,
 	&hw3d_device,
+	&ram_console_device,
 	//&msm_device_i2c,
 	//&fish_battery_device,
 };
@@ -404,12 +396,12 @@ static void __init msm_allocate_memory_regions(void)
 	pr_info("allocating %lu bytes at %p (%lx physical) for kernel"
 		" ebi1 pmem arena\n", size, addr, __pa(addr));
 
-	size = MSM_PMEM_GPU1_SIZE;
-	addr = alloc_bootmem(size);//, 0x100000);
-	android_pmem_gpu1_pdata.start = __pa(addr);
-	android_pmem_gpu1_pdata.size = size;
-	printk(KERN_INFO "allocating %lu bytes at %p (%lx physical)"
-	       "for gpu1 pmem\n", size, addr, __pa(addr));
+//	size = MSM_PMEM_GPU1_SIZE;
+//	addr = alloc_bootmem(size);//, 0x100000);
+//	android_pmem_gpu1_pdata.start = __pa(addr);
+//	android_pmem_gpu1_pdata.size = size;
+//	printk(KERN_INFO "allocating %lu bytes at %p (%lx physical)"
+//	       "for gpu1 pmem\n", size, addr, __pa(addr));
 }
 
 static void __init galaxy_map_io(void)
