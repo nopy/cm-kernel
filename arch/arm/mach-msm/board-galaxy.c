@@ -21,6 +21,8 @@
 #include <linux/io.h>
 #include <linux/delay.h>
 #include <linux/bootmem.h>
+#include <linux/i2c.h>
+#include <linux/i2c-gpio.h>
 
 #include <mach/hardware.h>
 #include <mach/irqs.h>
@@ -138,6 +140,119 @@ static struct platform_device ram_console_device = {
 	.resource       = ram_console_resource,
 };
 
+/* i2c devices */
+/* sensors */
+static struct i2c_gpio_platform_data sensors_i2c_pdata = {
+        .sda_pin = GPIO_SENSORS_I2C_SDA,
+        .sda_is_open_drain = 0,
+        .scl_pin = GPIO_SENSORS_I2C_SCL,
+        .scl_is_open_drain = 0,
+        .udelay = 2,
+};
+
+static struct platform_device sensors_i2c_bus = {
+        .name = "i2c-gpio",
+        .id = I2C_BUS_NUM_SENSORS,
+        .dev.platform_data = &sensors_i2c_pdata,
+};
+
+static struct i2c_board_info sensors_i2c_devices[] = {
+	{
+		I2C_BOARD_INFO("bma150", 0x38),
+		.type = "bma150",
+	},
+	{
+		I2C_BOARD_INFO("akm8973", 0x3C >> 1),
+	},
+	{
+		I2C_BOARD_INFO("gp2ap002", 0x88 >> 1),
+		.type = "gp2ap002",
+		.irq = MSM_GPIO_TO_INT(GPIO_PROXIMITY_IRQ),
+	},
+};
+
+/* AMP, sound & usb switch */
+static struct i2c_gpio_platform_data amp_i2c_pdata = {
+	.sda_pin	= GPIO_AMP_I2C_SDA,
+        .sda_is_open_drain = 0,
+	.scl_pin	= GPIO_AMP_I2C_SCL,
+        .scl_is_open_drain = 0,
+//	.udelay = 5,
+};
+
+static struct platform_device amp_i2c_bus = {
+        .name = "i2c-gpio",
+        .id = I2C_BUS_NUM_AMP,
+        .dev.platform_data = &amp_i2c_pdata,
+};
+
+static struct i2c_board_info amp_i2c_devices[] = {
+	{
+		I2C_BOARD_INFO("max9877", 0x9A >> 1),
+	},
+	{
+		I2C_BOARD_INFO("fsa9480", 0x4A >> 1),
+	},
+};
+
+/* touchscreen */
+static struct i2c_gpio_platform_data touch_i2c_pdata = {
+	.sda_pin	= GPIO_TOUCH_I2C_SDA,
+        .sda_is_open_drain = 0,
+	.scl_pin	= GPIO_TOUCH_I2C_SCL,
+        .scl_is_open_drain = 0,
+	.udelay = 5,
+};
+
+static struct platform_device touch_i2c_bus = {
+        .name = "i2c-gpio",
+        .id = I2C_BUS_NUM_TOUCH,
+        .dev.platform_data = &touch_i2c_pdata,
+};
+
+static struct i2c_board_info touch_i2c_device = {
+	I2C_BOARD_INFO("melfas-tsi-ts", 0x20),
+	.irq = MSM_GPIO_TO_INT(GPIO_TOUCH_IRQ),
+};
+
+/* camera */
+static struct i2c_gpio_platform_data cam_i2c_pdata = {
+	.sda_pin = GPIO_CAM_5M_I2C_SDA,
+        .sda_is_open_drain = 0,
+	.scl_pin = GPIO_CAM_5M_I2C_SCL,
+        .scl_is_open_drain = 0,
+//	.udelay = 5,
+};
+
+static struct platform_device cam_i2c_bus = {
+	.name = "i2c-gpio",
+	.id = I2C_BUS_NUM_CAMERA,
+	.dev.platform_data = &cam_i2c_pdata,
+};
+
+static struct i2c_board_info cam_i2c_device = {
+	I2C_BOARD_INFO("m4mo", 0x3F >> 1),
+};
+
+static struct i2c_gpio_platform_data cam_pm_i2c_pdata = {
+	.sda_pin    = GPIO_CAM_PM_I2C_SDA,
+        .sda_is_open_drain = 0,
+	.scl_pin    = GPIO_CAM_PM_I2C_SCL,
+        .scl_is_open_drain = 0,
+};
+
+static struct platform_device cam_pm_i2c_bus = {
+	.name = "i2c-gpio",
+	.id =  I2C_BUS_NUM_CAMERA_PM,
+	.dev.platform_data = &cam_pm_i2c_pdata,
+};
+
+static struct i2c_board_info cam_pm_i2c_device = {
+	I2C_BOARD_INFO("cam_pm_lp8720_i2c", 0x7D),
+};
+
+
+/* usb */
 #define HSUSB_API_INIT_PHY_PROC	2
 #define HSUSB_API_PROG		0x30000064
 #define HSUSB_API_VERS MSM_RPC_VERS(1,1)
@@ -470,6 +585,14 @@ static struct platform_device *devices[] __initdata = {
 	&ram_console_device,
 	//&msm_device_i2c,
 	//&fish_battery_device,
+
+	/* i2c */
+	&sensors_i2c_bus,
+	&amp_i2c_bus,
+	&touch_i2c_bus,
+	&cam_i2c_bus,
+	&cam_pm_i2c_bus,
+
 };
 
 extern struct sys_timer msm_timer;
@@ -489,18 +612,25 @@ static void galaxy_phy_reset(void)
 
 static void __init galaxy_init(void)
 {
+	msm_acpu_clock_init(&galaxy_clock_data);
+
 	msm_add_mem_devices(&pmem_settings);
+
+	/* register i2c devices */
+	/* each pair of SCL and SDA lines is one bus */
+	i2c_register_board_info(I2C_BUS_NUM_SENSORS, sensors_i2c_devices, ARRAY_SIZE(sensors_i2c_devices));
+	i2c_register_board_info(I2C_BUS_NUM_AMP, amp_i2c_devices, ARRAY_SIZE(amp_i2c_devices));
+	i2c_register_board_info(I2C_BUS_NUM_TOUCH, &touch_i2c_device, 1);
+	i2c_register_board_info(I2C_BUS_NUM_CAMERA_PM, &cam_pm_i2c_device, 1);
+	i2c_register_board_info(I2C_BUS_NUM_CAMERA, &cam_i2c_device, 1);
 
 	galaxy_init_mmc();
 
 	msm_add_usb_devices(galaxy_phy_reset);
 
-	msm_acpu_clock_init(&galaxy_clock_data);
-
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 
 	msm_fb_add_devices();
-
 	msm_hsusb_set_vbus_state(1);
 }
 

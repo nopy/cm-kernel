@@ -62,4 +62,40 @@ struct msm_pmem_setting{
 
 #define GPIO_FLASH_DETECT	20
 
+/* I2C Bus Num */
+#define I2C_BUS_NUM_SENSORS		1
+#define I2C_BUS_NUM_AMP			2
+#define I2C_BUS_NUM_TOUCH		5
+#define I2C_BUS_NUM_CAMERA_PM		4
+#define I2C_BUS_NUM_CAMERA		3
+
+/*
+#define I2C_BUS_NUM_BACKLIGHT		2
+#define I2C_BUS_NUM_CAMERA		3
+#define I2C_BUS_NUM_PROX		6
+#define I2C_BUS_NUM_COMPASS		7
+*/
+
+/* Sensors */
+#define GPIO_SENSORS_I2C_SDA		3
+#define GPIO_SENSORS_I2C_SCL		2
+#define GPIO_PROXIMITY_IRQ		57
+
+/* Amp */
+#define GPIO_AMP_I2C_SDA		83
+#define GPIO_AMP_I2C_SCL		82
+
+/* Touchscreen */
+#define GPIO_TOUCH_I2C_SDA		30
+#define GPIO_TOUCH_I2C_SCL		29
+#define GPIO_TOUCH_IRQ			19
+
+/* camera */
+#define GPIO_CAM_PM_I2C_SDA		37
+#define GPIO_CAM_PM_I2C_SCL		36
+#define GPIO_CAM_5M_I2C_SDA		61
+#define GPIO_CAM_5M_I2C_SCL		60
+
+
+
 #endif //__ARCH_ARM_MACH_MSM_BOARD_GALAXY_H
