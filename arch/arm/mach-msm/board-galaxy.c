@@ -35,6 +35,7 @@
 #include <mach/board.h>
 #include <mach/msm_iomap.h>
 #include <mach/msm_hsusb.h>
+#include <mach/msm_rpcrouter.h>
 #include <mach/camera.h>
 #include <mach/memory.h>
 #include <mach/msm_fb.h>
@@ -137,12 +138,142 @@ static struct platform_device ram_console_device = {
 	.resource       = ram_console_resource,
 };
 
+#define HSUSB_API_INIT_PHY_PROC	2
+#define HSUSB_API_PROG		0x30000064
+#define HSUSB_API_VERS MSM_RPC_VERS(1,1)
+
+
+static void hsusb_gpio_init(void)
+{
+	if (gpio_request(111, "ulpi_data_0"))
+		pr_err("failed to request gpio ulpi_data_0\n");
+	if (gpio_request(112, "ulpi_data_1"))
+		pr_err("failed to request gpio ulpi_data_1\n");
+	if (gpio_request(113, "ulpi_data_2"))
+		pr_err("failed to request gpio ulpi_data_2\n");
+	if (gpio_request(114, "ulpi_data_3"))
+		pr_err("failed to request gpio ulpi_data_3\n");
+	if (gpio_request(115, "ulpi_data_4"))
+		pr_err("failed to request gpio ulpi_data_4\n");
+	if (gpio_request(116, "ulpi_data_5"))
+		pr_err("failed to request gpio ulpi_data_5\n");
+	if (gpio_request(117, "ulpi_data_6"))
+		pr_err("failed to request gpio ulpi_data_6\n");
+	if (gpio_request(118, "ulpi_data_7"))
+		pr_err("failed to request gpio ulpi_data_7\n");
+	if (gpio_request(119, "ulpi_dir"))
+		pr_err("failed to request gpio ulpi_dir\n");
+	if (gpio_request(120, "ulpi_next"))
+		pr_err("failed to request gpio ulpi_next\n");
+	if (gpio_request(121, "ulpi_stop"))
+		pr_err("failed to request gpio ulpi_stop\n");
+}
+
+static unsigned usb_gpio_lpm_config[] = {
+	GPIO_CFG(111, 1, GPIO_INPUT, GPIO_NO_PULL, GPIO_2MA),	/* DATA 0 */
+	GPIO_CFG(112, 1, GPIO_INPUT, GPIO_NO_PULL, GPIO_2MA),	/* DATA 1 */
+	GPIO_CFG(113, 1, GPIO_INPUT, GPIO_NO_PULL, GPIO_2MA),	/* DATA 2 */
+	GPIO_CFG(114, 1, GPIO_INPUT, GPIO_NO_PULL, GPIO_2MA),	/* DATA 3 */
+	GPIO_CFG(115, 1, GPIO_INPUT, GPIO_NO_PULL, GPIO_2MA),	/* DATA 4 */
+	GPIO_CFG(116, 1, GPIO_INPUT, GPIO_NO_PULL, GPIO_2MA),	/* DATA 5 */
+	GPIO_CFG(117, 1, GPIO_INPUT, GPIO_NO_PULL, GPIO_2MA),	/* DATA 6 */
+	GPIO_CFG(118, 1, GPIO_INPUT, GPIO_NO_PULL, GPIO_2MA),	/* DATA 7 */
+	GPIO_CFG(119, 1, GPIO_INPUT, GPIO_NO_PULL, GPIO_2MA),	/* DIR */
+	GPIO_CFG(120, 1, GPIO_INPUT, GPIO_NO_PULL, GPIO_2MA),	/* NEXT */
+	GPIO_CFG(121, 1, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_2MA),	/* STOP */
+};
+
+static unsigned usb_gpio_lpm_unconfig[] = {
+	GPIO_CFG(111, 1, GPIO_OUTPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DATA 0 */
+	GPIO_CFG(112, 1, GPIO_OUTPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DATA 1 */
+	GPIO_CFG(113, 1, GPIO_OUTPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DATA 2 */
+	GPIO_CFG(114, 1, GPIO_OUTPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DATA 3 */
+	GPIO_CFG(115, 1, GPIO_OUTPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DATA 4 */
+	GPIO_CFG(116, 1, GPIO_OUTPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DATA 5 */
+	GPIO_CFG(117, 1, GPIO_OUTPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DATA 6 */
+	GPIO_CFG(118, 1, GPIO_OUTPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DATA 7 */
+	GPIO_CFG(119, 1, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DIR */
+	GPIO_CFG(120, 1, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* NEXT */
+	GPIO_CFG(121, 1, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_2MA), /* STOP */
+};
+
+static int usb_config_gpio(int config)
+{
+	int pin, rc;
+
+	if (config) {
+		for (pin = 0; pin < ARRAY_SIZE(usb_gpio_lpm_config); pin++) {
+			rc = gpio_tlmm_config(usb_gpio_lpm_config[pin],
+					      GPIO_ENABLE);
+			if (rc) {
+				printk(KERN_ERR
+				       "%s: gpio_tlmm_config(%#x)=%d\n",
+				       __func__, usb_gpio_lpm_config[pin], rc);
+				return -EIO;
+			}
+		}
+	} else {
+		for (pin = 0; pin < ARRAY_SIZE(usb_gpio_lpm_unconfig); pin++) {
+			rc = gpio_tlmm_config(usb_gpio_lpm_unconfig[pin],
+					      GPIO_ENABLE);
+			if (rc) {
+				printk(KERN_ERR
+				       "%s: gpio_tlmm_config(%#x)=%d\n",
+				       __func__, usb_gpio_lpm_config[pin], rc);
+				return -EIO;
+			}
+		}
+	}
+
+	return 0;
+}
+static void internal_phy_reset(void)
+{
+	struct msm_rpc_endpoint *usb_ep;
+	int rc;
+	struct hsusb_phy_start_req {
+		struct rpc_request_hdr hdr;
+	} req;
+
+	printk(KERN_INFO "msm_hsusb_phy_reset\n");
+
+	usb_ep = msm_rpc_connect(HSUSB_API_PROG, HSUSB_API_VERS, 0);
+	if (IS_ERR(usb_ep)) {
+		printk(KERN_ERR "%s: init rpc failed! error: %ld\n",
+				__func__, PTR_ERR(usb_ep));
+		goto close;
+	}
+	rc = msm_rpc_call(usb_ep, HSUSB_API_INIT_PHY_PROC,
+			&req, sizeof(req), 5 * HZ);
+	if (rc < 0)
+		printk(KERN_ERR "%s: rpc call failed! (%d)\n", __func__, rc);
+
+close:
+	msm_rpc_close(usb_ep);
+}
 
 static int galaxy_phy_init_seq[] = { 0x1D, 0x0D, 0x1D, 0x10, -1 };
 
 static struct msm_hsusb_platform_data msm_hsusb_pdata = {
 	.phy_init_seq = galaxy_phy_init_seq,
+	.phy_reset = internal_phy_reset,
 };
+
+#ifdef CONFIG_USB_ANDROID_RNDIS
+static struct usb_ether_platform_data rndis_pdata = {
+	/* ethaddr is filled by board_serialno_setup */
+	.vendorID	= 0x0bb4,
+	.vendorDescr	= "HTC",
+};
+
+static struct platform_device rndis_device = {
+	.name	= "rndis",
+	.id	= -1,
+	.dev	= {
+		.platform_data = &rndis_pdata,
+	},
+};
+#endif
 
 static struct usb_mass_storage_platform_data mass_storage_pdata = {
 	.nluns = 1,
@@ -160,18 +291,18 @@ static struct platform_device usb_mass_storage_device = {
 };
 
 static char *usb_functions[] = { "usb_mass_storage",};
-static char *usb_functions_adb[] = { "usb_mass_storage", "adb" };
+static char *usb_functions_adb[] = { "usb_mass_storage", "adb", };
 
 static struct android_usb_product usb_products[] = {
-	{
-		.product_id	= 0x6601,
-		.num_functions	= ARRAY_SIZE(usb_functions),
-		.functions	= usb_functions,
-	},
 	{
 		.product_id	= 0x6640,
 		.num_functions	= ARRAY_SIZE(usb_functions_adb),
 		.functions	= usb_functions_adb,
+	},
+	{
+		.product_id	= 0x6601,
+		.num_functions	= ARRAY_SIZE(usb_functions),
+		.functions	= usb_functions,
 	},
 };
 
@@ -311,16 +442,30 @@ static void __init msm_fb_add_devices(void)
 //	msm_fb_register_device("pmdh", &mddi_pdata);
 }
 
+void __init msm_add_usb_devices(void (*phy_reset) (void))
+{
+	/* setup */
+	hsusb_gpio_init();
+	usb_config_gpio(1);
+
+	if (phy_reset)
+		msm_hsusb_pdata.phy_reset = phy_reset;
+	msm_device_hsusb.dev.platform_data = &msm_hsusb_pdata;
+	platform_device_register(&msm_device_hsusb);
+#ifdef CONFIG_USB_ANDROID_RNDIS
+	platform_device_register(&rndis_device);
+#endif
+	platform_device_register(&usb_mass_storage_device);
+	platform_device_register(&android_usb_device);
+}
 
 static struct platform_device *devices[] __initdata = {
 	&msm_device_uart3,
 	&msm_device_smd,
 	&msm_device_nand,
-	&msm_device_hsusb,
 	&msm_device_i2c,
 	&msm_fb_device,
-	&usb_mass_storage_device,
-	&android_usb_device,
+	//&usb_mass_storage_device,
 	&hw3d_device,
 	&ram_console_device,
 	//&msm_device_i2c,
@@ -348,7 +493,8 @@ static void __init galaxy_init(void)
 
 	galaxy_init_mmc();
 
-	msm_device_hsusb.dev.platform_data = &msm_hsusb_pdata;
+	msm_add_usb_devices(galaxy_phy_reset);
+
 	msm_acpu_clock_init(&galaxy_clock_data);
 
 	platform_add_devices(devices, ARRAY_SIZE(devices));
@@ -398,7 +544,7 @@ static void __init galaxy_map_io(void)
 	msm_clock_init(msm_clocks_7x01a, msm_num_clocks_7x01a);
 }
 
-MACHINE_START(GALAXY, "galaxy-maldn-google-32")
+MACHINE_START(GALAXY, "galaxy")
 	.boot_params	= 0x10000100,
 	//.fixup		= galaxy_fixup,
 	.map_io		= galaxy_map_io,
