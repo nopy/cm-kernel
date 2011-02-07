@@ -48,6 +48,8 @@
 #include <linux/android_pmem.h>
 #include <linux/usb/android_composite.h>
 
+#include <linux/fsa9480.h>
+
 #include "devices.h"
 #include "board-galaxy.h"
 #include "proc_comm.h"
@@ -186,12 +188,22 @@ static struct platform_device amp_i2c_bus = {
         .dev.platform_data = &amp_i2c_pdata,
 };
 
+static void fsa9480_attached_callback(u8 attached) {
+	pr_info("fsa9480_attached_callback: %d", attached);
+}
+
+static struct fsa9480_platform_data fsa9480_data = {
+	.usb_cb = fsa9480_attached_callback,
+};
+
+
 static struct i2c_board_info amp_i2c_devices[] = {
 	{
 		I2C_BOARD_INFO("max9877", 0x9A >> 1),
 	},
 	{
 		I2C_BOARD_INFO("fsa9480", 0x4A >> 1),
+		.platform_data = &fsa9480_data,
 	},
 };
 
