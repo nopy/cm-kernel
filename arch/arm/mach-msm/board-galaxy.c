@@ -380,11 +380,18 @@ close:
 	msm_rpc_close(usb_ep);
 }
 
+static void usb_connected(int state) {
+	printk(KERN_INFO "%s: %d", __FUNCTION__, state);
+}
+
 static int galaxy_phy_init_seq[] = { 0x1D, 0x0D, 0x1D, 0x10, -1 };
 
 static struct msm_hsusb_platform_data msm_hsusb_pdata = {
 	.phy_init_seq = galaxy_phy_init_seq,
 	.phy_reset = internal_phy_reset,
+	//.config_usb_id_gpios = usb_config_gpio,
+	.usb_connected = usb_connected,
+	//.usb_id_pin_gpio = 112,
 };
 
 #ifdef CONFIG_USB_ANDROID_RNDIS
@@ -455,29 +462,6 @@ static struct platform_device android_usb_device = {
 	},
 };
 
-
-//static struct msm_panel_common_pdata mdp_pdata = {
-//	.gpio = 97,
-//};
-//
-//static struct mddi_platform_data mddi_pdata = {
-//    .mddi_power_save = msm_fb_mddi_power_save,
-//};
-
-static struct resource msm_fb_resources[] = {
-	{
-		.start = MSM_FB_BASE,
-		.end = MSM_FB_BASE + MSM_FB_SIZE - 1,
-		.flags  = IORESOURCE_DMA,
-	}
-};
-
-static struct platform_device msm_fb_device = {
-	.name   = "msm_fb",
-	.id     = 0,
-	.num_resources  = ARRAY_SIZE(msm_fb_resources),
-	.resource       = msm_fb_resources,
-};
 
 static struct resource resources_hw3d[] = {
 	{
@@ -564,37 +548,32 @@ void __init msm_add_mem_devices(struct msm_pmem_setting *setting)
 //	platform_device_register(&ram_console_device);
 }
 
-static void __init msm_fb_add_devices(void)
-{
-//	msm_fb_register_device("mdp", &mdp_pdata);
-//	msm_fb_register_device("pmdh", &mddi_pdata);
-}
-
-void __init msm_add_usb_devices(void (*phy_reset) (void))
+void __init msm_add_usb_devices(void)
 {
 	/* setup */
-	hsusb_gpio_init();
-	usb_config_gpio(1);
+//	hsusb_gpio_init();
+//	usb_config_gpio(1);
 
-	if (phy_reset)
-		msm_hsusb_pdata.phy_reset = phy_reset;
 	msm_device_hsusb.dev.platform_data = &msm_hsusb_pdata;
 	platform_device_register(&msm_device_hsusb);
+	platform_device_register(&usb_mass_storage_device);
+	platform_device_register(&android_usb_device);
 #ifdef CONFIG_USB_ANDROID_RNDIS
 	platform_device_register(&rndis_device);
 #endif
-	platform_device_register(&usb_mass_storage_device);
-	platform_device_register(&android_usb_device);
+	msm_hsusb_set_vbus_state(1);
 }
 
 static struct platform_device *devices[] __initdata = {
 	&msm_device_uart3,
 	&msm_device_smd,
 	&msm_device_nand,
-	&msm_device_i2c,
-	&msm_fb_device,
-	//&usb_mass_storage_device,
+	&msm_device_touchscreen,
+	//&msm_device_i2c,
+	//&msm_fb_device,
+
 	&hw3d_device,
+	//&msm_fb_device,
 	&ram_console_device,
 	//&msm_device_i2c,
 	//&fish_battery_device,
@@ -625,9 +604,12 @@ static void galaxy_phy_reset(void)
 
 static void __init galaxy_init(void)
 {
+
 	msm_acpu_clock_init(&galaxy_clock_data);
 
 	msm_add_mem_devices(&pmem_settings);
+
+	init_keypad();
 
 	/* register i2c devices */
 	/* each pair of SCL and SDA lines is one bus */
@@ -639,12 +621,10 @@ static void __init galaxy_init(void)
 
 	galaxy_init_mmc();
 
-	msm_add_usb_devices(galaxy_phy_reset);
+	msm_add_usb_devices();
+	//msm_fb_add_devices();
 
 	platform_add_devices(devices, ARRAY_SIZE(devices));
-
-	msm_fb_add_devices();
-	msm_hsusb_set_vbus_state(1);
 }
 
 static void __init galaxy_fixup(struct machine_desc *desc, struct tag *tags,
