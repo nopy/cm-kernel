@@ -55,6 +55,7 @@
 #include "proc_comm.h"
 
 extern int galaxy_init_mmc(void);
+extern int init_keypad(void);
 
 static struct msm_pmem_setting pmem_settings = {
 	.pmem_start = MSM_PMEM_MDP_BASE,

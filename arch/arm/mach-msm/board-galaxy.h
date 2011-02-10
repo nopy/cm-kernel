@@ -61,6 +61,7 @@ struct msm_pmem_setting{
 };
 
 #define GPIO_FLASH_DETECT	20
+#define GPIO_LCD_VSYNC		97
 
 /* I2C Bus Num */
 #define I2C_BUS_NUM_SENSORS		1
@@ -96,6 +97,6 @@ struct msm_pmem_setting{
 #define GPIO_CAM_5M_I2C_SDA		61
 #define GPIO_CAM_5M_I2C_SCL		60
 
-
+#define KEY_CAMERA_AF			247
 
 #endif //__ARCH_ARM_MACH_MSM_BOARD_GALAXY_H
