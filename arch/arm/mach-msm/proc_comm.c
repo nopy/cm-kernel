@@ -47,6 +47,8 @@ static inline void notify_other_proc_comm(void)
 #define MDM_DATA1   0x18
 #define MDM_DATA2   0x1C
 
+extern int Arm9Crashed;
+
 static DEFINE_SPINLOCK(proc_comm_lock);
 
 /* The higher level SMD support will install this to
@@ -71,6 +73,11 @@ static int proc_comm_wait_for(void __iomem *addr, unsigned value)
 		if (msm_check_for_modem_crash)
 			if (msm_check_for_modem_crash())
 				return -EAGAIN;
+		// hsil : for making ARM11 run normaly despite of ARM9 crashed 
+		if (Arm9Crashed) {
+			printk("[HSI] %s : Arm9Crashed -> Go to normal mode\n", __func__);
+			return 0;
+		}
 	}
 }
 
@@ -85,6 +92,13 @@ int msm_proc_comm(unsigned cmd, unsigned *data1, unsigned *data2)
 	for (;;) {
 		if (proc_comm_wait_for(base + MDM_STATUS, PCOM_READY))
 			continue;
+
+		// hsil
+		if (Arm9Crashed) {	
+			printk("[HSIL] %s : Arm9Crashed #1\n", __func__);
+			spin_unlock_irqrestore(&proc_comm_lock, flags);
+			return -1;
+		}
 
 		writel(cmd, base + APP_COMMAND);
 		writel(data1 ? *data1 : 0, base + APP_DATA1);

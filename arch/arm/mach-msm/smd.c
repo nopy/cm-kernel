@@ -39,6 +39,14 @@
 #define CONFIG_QDSP6 1
 #endif
 
+// for DUMP
+#define DUMP_BIN_INCREASEMENT 	128
+#define DUMP_TXT_INCREASEMENT 	1024
+
+// hsil
+int Arm9Crashed = 0;
+EXPORT_SYMBOL(Arm9Crashed);
+
 void (*msm_hw_reset_hook)(void);
 
 #define MODULE_NAME "msm_smd"
@@ -107,23 +115,70 @@ static void smd_diag(void)
 
 void msm_pm_flush_console(void);
 
+// for DUMP
+void mem_dump_32( unsigned int addr)
+{
+	unsigned int *ptr32;
+	unsigned char *ptr8;	
+	unsigned int i, j;
+
+	ptr32 = (unsigned int*)(addr);
+	if (ptr32 == 0) return;
+		for( i=0; i < DUMP_BIN_INCREASEMENT+1; )
+		{
+			if( i % 16 == 0) 
+			{
+				if( i != 0 )
+				{
+					ptr8 = (unsigned char*) ptr32;
+					printk("  ");
+					for( j=16; j>0; j--)
+					{
+						if( 0x20 <=  *(ptr8-j) && *(ptr8-j) <= 0x7F )
+							printk("%c", *(ptr8-j));
+						else 
+							printk(".");
+					}
+				}
+				
+				if( i < DUMP_BIN_INCREASEMENT )
+					printk("\n%08x :", ptr32);
+			}
+			
+			if( i < DUMP_BIN_INCREASEMENT )	
+				printk("  %08x", *ptr32++);
+			i+=4;
+		}
+		printk("\n");
+}
 /* call when SMSM_RESET flag is set in the A9's smsm_state */
 static void handle_modem_crash(void)
 {
-	pr_err("ARM9 has CRASHED\n");
-	smd_diag();
+	unsigned char *dpramBase; // SmemBase;
+
+  // for DUMP
+  dpramBase = (volatile unsigned char *)(smem_alloc(SMEM_ID_VENDOR0, 0x4000*2));
+  mem_dump_32(dpramBase + 0x4004 );
+
+  Arm9Crashed = 1;
+  printk("[HSI] %s : Exit endless loop\n", __func__);
 	msm_pm_flush_console();
+  return 0;
+
+	//pr_err("ARM9 has CRASHED\n");
+	//smd_diag();
 
 	/* hard reboot if possible */
-	if (msm_hw_reset_hook)
-		msm_hw_reset_hook();
+	//if (msm_hw_reset_hook)
+	//	msm_hw_reset_hook();
 
 	/* in this case the modem or watchdog should reboot us */
-	for (;;)
-		;
+	//for (;;)
+	//	;
 }
 
 extern int (*msm_check_for_modem_crash)(void);
+
 
 uint32_t raw_smsm_get_state(enum smsm_state_item item)
 {
@@ -132,6 +187,7 @@ uint32_t raw_smsm_get_state(enum smsm_state_item item)
 
 static int check_for_modem_crash(void)
 {
+
 	if (raw_smsm_get_state(SMSM_STATE_MODEM) & SMSM_RESET) {
 		handle_modem_crash();
 		return -1;
@@ -622,7 +678,7 @@ static int smd_alloc_channel(const char *name, uint32_t cid, uint32_t type)
 	}
 	ch->n = cid;
 
-	if (smd_alloc_v2(ch) && smd_alloc_v1(ch)) {
+	if (/*smd_alloc_v2(ch) &&*/ smd_alloc_v1(ch)) {
 		kfree(ch);
 		return -1;
 	}
