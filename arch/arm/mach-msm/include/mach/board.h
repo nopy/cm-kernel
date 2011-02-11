@@ -240,6 +240,64 @@ struct msm_adspdec_database {
 	struct dec_instance_table *dec_instance_list;
 };
 
+struct msm_panel_common_pdata {
+	uintptr_t hw_revision_addr;
+	int gpio;
+	int (*backlight_level)(int level, int max, int min);
+	int (*pmic_backlight)(int level);
+	int (*panel_num)(void);
+	void (*panel_config_gpio)(int);
+	int (*vga_switch)(int select_vga);
+	int *gpio_num;
+	int mdp_core_clk_rate;
+	unsigned num_mdp_clk;
+	int *mdp_core_clk_table;
+#ifdef CONFIG_MSM_BUS_SCALING
+	struct msm_bus_scale_pdata *mdp_bus_scale_table;
+#endif
+};
+
+struct lcdc_platform_data {
+	int (*lcdc_gpio_config)(int on);
+	int (*lcdc_power_save)(int);
+#ifdef CONFIG_MSM_BUS_SCALING
+	struct msm_bus_scale_pdata *bus_scale_table;
+#endif
+};
+
+struct tvenc_platform_data {
+	int poll;
+	int (*pm_vid_en)(int on);
+#ifdef CONFIG_MSM_BUS_SCALING
+	struct msm_bus_scale_pdata *bus_scale_table;
+#endif
+};
+
+struct mddi_platform_data {
+	int (*mddi_power_save)(int on);
+	int (*mddi_sel_clk)(u32 *clk_rate);
+};
+
+struct mipi_dsi_platform_data {
+	int (*dsi_power_save)(int on);
+};
+
+struct msm_fb_platform_data {
+	int (*detect_client)(const char *name);
+	int mddi_prescan;
+	int (*allow_set_offset)(void);
+};
+
+struct msm_hdmi_platform_data {
+	int irq;
+	int (*cable_detect)(int insert);
+	int (*comm_power)(int on, int show);
+	int (*enable_5v)(int on);
+	int (*core_power)(int on);
+	int (*cec_power)(int on);
+	int (*init_irq)(void);
+};
+
 /* common init routines for use by arch/arm/mach-msm/board-*.c */
 void __init msm_add_devices(void);
 void __init msm_map_common_io(void);

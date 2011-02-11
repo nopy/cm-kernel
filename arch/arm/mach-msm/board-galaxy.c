@@ -41,6 +41,7 @@
 #include <mach/camera.h>
 #include <mach/memory.h>
 #include <mach/msm_fb.h>
+#include <mach/vreg.h>
 
 #include <linux/mtd/nand.h>
 #include <linux/mtd/partitions.h>
@@ -369,7 +370,7 @@ static void internal_phy_reset(void)
 	if (IS_ERR(usb_ep)) {
 		printk(KERN_ERR "%s: init rpc failed! error: %ld\n",
 				__func__, PTR_ERR(usb_ep));
-		goto close;
+		return;
 	}
 	rc = msm_rpc_call(usb_ep, HSUSB_API_INIT_PHY_PROC,
 			&req, sizeof(req), 5 * HZ);
@@ -462,6 +463,58 @@ static struct platform_device android_usb_device = {
 	},
 };
 
+static char *msm_fb_vreg[] = {
+};              
+        
+#define MSM_FB_VREG_OP(name, op)                                        \
+        do {vreg = vreg_get(0, name);                                   \
+        if (vreg_##op(vreg))                                            \
+                printk(KERN_ERR "%s: %s vreg operation failed \n",      \
+                (vreg_##op == vreg_enable) ? "vreg_enable" : "vreg_disable",\
+                name); } while (0)
+        
+static void msm_fb_mddi_power_save(int on)
+{               
+        struct vreg *vreg;
+        int i;
+
+        for (i = 0; i < ARRAY_SIZE(msm_fb_vreg); i++) {
+                if (on) 
+                        MSM_FB_VREG_OP(msm_fb_vreg[i], enable);
+                else
+                        MSM_FB_VREG_OP(msm_fb_vreg[i], disable);
+        }
+}               
+        
+static struct msm_panel_common_pdata mdp_data = {
+	.gpio = 97,
+};
+
+static struct mddi_platform_data mddi_data = {
+        .mddi_power_save = msm_fb_mddi_power_save,
+};
+
+/*static struct resource msm_fb_resources[] = {
+	{
+		.start = SMI64_MSM_FB_BASE,
+		.end = SMI64_MSM_FB_BASE + SMI64_MSM_FB_SIZE - 1,
+		.flags  = IORESOURCE_DMA,
+	}
+};*/
+static struct resource msm_fb_resources[] = {
+	{
+		.start = MSM_FB_BASE,
+		.end = MSM_FB_BASE + MSM_FB_SIZE - 1,
+		.flags  = IORESOURCE_MEM,
+	}
+};
+
+static struct platform_device msm_fb_device = {
+	.name   = "msm_fb",
+	.id     = 0,
+	.num_resources  = ARRAY_SIZE(msm_fb_resources),
+	.resource       = msm_fb_resources,
+};
 
 static struct resource resources_hw3d[] = {
 	{
@@ -564,6 +617,14 @@ void __init msm_add_usb_devices(void)
 	msm_hsusb_set_vbus_state(1);
 }
 
+
+static void __init msm_fb_add_devices(void)
+{
+	msm_register_device(&msm_device_mdp, &mdp_data);
+	msm_register_device(&msm_device_mddi0, &mddi_data);
+	//msm_fb_register_device("emdh", &mddi_pdata);
+}
+
 static struct platform_device *devices[] __initdata = {
 	&msm_device_uart3,
 	&msm_device_smd,
@@ -573,7 +634,7 @@ static struct platform_device *devices[] __initdata = {
 	//&msm_fb_device,
 
 	&hw3d_device,
-	//&msm_fb_device,
+	&msm_fb_device,
 	&ram_console_device,
 	//&msm_device_i2c,
 	//&fish_battery_device,
@@ -622,7 +683,7 @@ static void __init galaxy_init(void)
 	galaxy_init_mmc();
 
 	msm_add_usb_devices();
-	//msm_fb_add_devices();
+	msm_fb_add_devices();
 
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 }

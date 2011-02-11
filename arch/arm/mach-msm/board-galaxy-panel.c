@@ -15,6 +15,7 @@
 ** GNU General Public License for more details.
 */
 
+#if 0
 #include <linux/device.h>
 #include <linux/platform_device.h>
 #include <linux/leds.h>
@@ -1742,3 +1743,4 @@ int __init galaxy_init_panel(void) {
 }
 
 device_initcall(galaxy_init_panel);
+#endif
