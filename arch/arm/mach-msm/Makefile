@@ -59,6 +59,7 @@ obj-$(CONFIG_MACH_MAHIMAHI) += msm_vibrator.o
 obj-$(CONFIG_MACH_MAHIMAHI) += board-mahimahi-microp.o
 obj-$(CONFIG_MACH_GALAXY) += board-galaxy.o board-galaxy-mmc.o 
 obj-$(CONFIG_MACH_GALAXY) += board-galaxy-panel.o board-galaxy-keypad.o devices-msm7x00.o
+obj-$(CONFIG_MACH_GALAXY) += socinfo.o
 obj-$(CONFIG_MACH_HALIBUT) += board-halibut.o devices-msm7x00.o
 obj-$(CONFIG_MACH_HALIBUT) += board-halibut-keypad.o
 obj-$(CONFIG_MACH_HALIBUT) += board-halibut-panel.o fish_battery.o
