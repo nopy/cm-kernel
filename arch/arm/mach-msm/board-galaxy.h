@@ -97,6 +97,33 @@ struct msm_pmem_setting{
 #define GPIO_CAM_5M_I2C_SDA		61
 #define GPIO_CAM_5M_I2C_SCL		60
 
+/* bluetooth */
+#define GPIO_WLAN_BT_REG_ON 		85
+#define GPIO_WLAN_HOST_WAKE		28
+#define GPIO_BT_RESET 			109
+
+#define GPIO_BT_UART_RTS		43
+#define GPIO_BT_UART_CTS		44
+#define GPIO_BT_UART_RXD		45
+#define GPIO_BT_UART_TXD		46
+
+#define GPIO_BT_PCM_DOUT		68
+#define GPIO_BT_PCM_DIN			69
+#define GPIO_BT_PCM_SYNC		70
+#define GPIO_BT_PCM_CLK			71
+
+#define GPIO_BT_WAKE			77
+#define GPIO_WLAN_RESET			81
+#define GPIO_BT_HOST_WAKE		94
+
+#define GPIO_CHK_BOARD_REV 		99
+
+#define GALAXY_GPIO_WIFI_IRQ  GPIO_WLAN_HOST_WAKE
+
+#define GPIO_SEND_END 			38
+
+
+
 #define KEY_CAMERA_AF			247
 
 #endif //__ARCH_ARM_MACH_MSM_BOARD_GALAXY_H

@@ -27,6 +27,7 @@
 #include <mach/hardware.h>
 #include <mach/irqs.h>
 #include <mach/gpio.h>
+#include <mach/socinfo.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
@@ -42,6 +43,9 @@
 #include <mach/memory.h>
 #include <mach/msm_fb.h>
 #include <mach/vreg.h>
+#include <mach/usbdiag.h>
+#include <mach/bcm_bt_lpm.h>
+#include <mach/msm_serial_hs.h>
 
 #include <linux/mtd/nand.h>
 #include <linux/mtd/partitions.h>
@@ -58,34 +62,6 @@
 extern int galaxy_init_mmc(void);
 extern int init_keypad(void);
 
-static struct msm_pmem_setting pmem_settings = {
-	.pmem_start = MSM_PMEM_MDP_BASE,
-	.pmem_size = MSM_PMEM_MDP_SIZE,
-	.pmem_adsp_start = MSM_PMEM_ADSP_BASE,
-	.pmem_adsp_size = MSM_PMEM_ADSP_SIZE,
-	.pmem_gpu0_start = MSM_PMEM_GPU0_BASE,
-	.pmem_gpu0_size = MSM_PMEM_GPU0_SIZE,
-	.pmem_gpu1_start = 0,	// will be allocated
-	.pmem_gpu1_size = MSM_PMEM_GPU1_SIZE,
-	.pmem_camera_start = MSM_PMEM_CAMERA_BASE,
-	.pmem_camera_size = MSM_PMEM_CAMERA_SIZE,
-	.pmem_kernel_ebi1_start = 0, // will be allocated
-	.pmem_kernel_ebi1_size = MSM_PMEM_KERNEL_EBI1_SIZE,
-	.ram_console_start = 0,
-	.ram_console_size = 0,
-};
-
-struct android_pmem_platform_data android_pmem_kernel_ebi1_pdata = {
-	.name = "pmem_kernel_ebi1",
-	/* if no allocator_type, defaults to PMEM_ALLOCATORTYPE_BITMAP,
-	 * the only valid choice at this time. The board structure is
-	 * set to all zeros by the C runtime initialization and that is now
-	 * the enum value of PMEM_ALLOCATORTYPE_BITMAP, now forced to 0 in
-	 * include/linux/android_pmem.h.
-	 */
-	.cached = 0,
-};
-
 static struct android_pmem_platform_data android_pmem_pdata = {
 	.name = "pmem",
 	.start = MSM_PMEM_MDP_BASE,
@@ -95,12 +71,18 @@ static struct android_pmem_platform_data android_pmem_pdata = {
 };
 
 static struct android_pmem_platform_data android_pmem_camera_pdata = {
-    .name = "pmem_camera",
-    .cached = 1,
+	.name = "pmem_camera",
+	.start = MSM_PMEM_CAMERA_BASE,
+	.size = MSM_PMEM_CAMERA_SIZE,
+	.no_allocator = 0,
+	.cached = 1,
 };
 
 static struct android_pmem_platform_data android_pmem_adsp_pdata = {
 	.name = "pmem_adsp",
+	.start = MSM_PMEM_ADSP_BASE,
+	.size = MSM_PMEM_ADSP_SIZE,
+	.no_allocator = 0,
 	.cached = 0,
 };
 
@@ -121,12 +103,6 @@ static struct platform_device android_pmem_camera_device = {
 	.name = "android_pmem",
 	.id = 2,
 	.dev = { .platform_data = &android_pmem_camera_pdata },
-};
-
-static struct platform_device android_pmem_kernel_ebi1_device = {
-	.name = "android_pmem",
-	.id = 5,
-	.dev = { .platform_data = &android_pmem_kernel_ebi1_pdata },
 };
 
 static struct resource ram_console_resource[] = {
@@ -395,6 +371,60 @@ static struct msm_hsusb_platform_data msm_hsusb_pdata = {
 	//.usb_id_pin_gpio = 112,
 };
 
+static char *usb_functions_ums[] = {
+	"usb_mass_storage",
+};
+
+static char *usb_functions_ums_adb[] = {
+	"usb_mass_storage",
+	"adb",
+};
+
+static char *usb_functions_rndis[] = {
+	"rndis",
+};
+
+static char *usb_functions_rndis_adb[] = {
+	"rndis",
+	"adb",
+};
+
+#ifdef CONFIG_USB_ANDROID_DIAG
+static char *usb_functions_adb_diag[] = {
+	"usb_mass_storage",
+	"adb",
+	"diag",
+};
+#endif
+
+static char *usb_functions_all[] = {
+#ifdef CONFIG_USB_ANDROID_RNDIS
+	"rndis",
+#endif
+	"usb_mass_storage",
+	"adb",
+#ifdef CONFIG_USB_ANDROID_ACM
+	"acm",
+#endif
+#ifdef CONFIG_USB_ANDROID_DIAG
+	"diag",
+#endif
+};
+
+
+static struct android_usb_product usb_products[] = {
+	{
+		.product_id	= 0x6640,
+		.num_functions	= ARRAY_SIZE(usb_functions_adb_diag),
+		.functions	= usb_functions_adb_diag,
+	},
+	{
+		.product_id	= 0x6601,
+		.num_functions	= ARRAY_SIZE(usb_functions_ums_adb),
+		.functions	= usb_functions_ums_adb,
+	},
+};
+
 #ifdef CONFIG_USB_ANDROID_RNDIS
 static struct usb_ether_platform_data rndis_pdata = {
 	/* ethaddr is filled by board_serialno_setup */
@@ -426,21 +456,20 @@ static struct platform_device usb_mass_storage_device = {
 	},
 };
 
-static char *usb_functions[] = { "usb_mass_storage",};
-static char *usb_functions_adb[] = { "usb_mass_storage", "adb", };
-
-static struct android_usb_product usb_products[] = {
-	{
-		.product_id	= 0x6640,
-		.num_functions	= ARRAY_SIZE(usb_functions_adb),
-		.functions	= usb_functions_adb,
-	},
-	{
-		.product_id	= 0x6601,
-		.num_functions	= ARRAY_SIZE(usb_functions),
-		.functions	= usb_functions,
-	},
+#ifdef CONFIG_USB_ANDROID_DIAG
+struct usb_diag_platform_data usb_diag_pdata = {
+  .ch_name = DIAG_LEGACY,
+  //.update_pid_and_serial_num = usb_diag_update_pid_and_serial_num,
 };
+
+struct platform_device usb_diag_device = {
+  .name = "usb_diag",
+  .id = -1,
+  .dev  = {
+    .platform_data = &usb_diag_pdata,
+  },
+};
+#endif
 
 static struct android_usb_platform_data android_usb_pdata = {
 	.vendor_id = 0x04E8,
@@ -451,8 +480,8 @@ static struct android_usb_platform_data android_usb_pdata = {
 	.manufacturer_name = "SAMSUNG",
 	.num_products = ARRAY_SIZE(usb_products),
 	.products = usb_products,
-	.num_functions = ARRAY_SIZE(usb_functions_adb),
-	.functions = usb_functions_adb,
+	.num_functions = ARRAY_SIZE(usb_functions_all),
+	.functions = usb_functions_all,
 };
 
 static struct platform_device android_usb_device = {
@@ -525,14 +554,14 @@ static struct resource resources_hw3d[] = {
 	},
 	{
 		.flags	= IORESOURCE_MEM,
-        .start  = MSM_PMEM_GPU0_BASE,
-        .end    = MSM_PMEM_GPU0_BASE+MSM_PMEM_GPU0_SIZE-1,
+		.start  = MSM_PMEM_GPU0_BASE,
+		.end    = MSM_PMEM_GPU0_BASE+MSM_PMEM_GPU0_SIZE-1,
 		.name	= "smi",
 	},
 	{
 		.flags	= IORESOURCE_MEM,
-//		.start  = MSM_PMEM_GPU1_BASE,
-//		.end    = MSM_PMEM_GPU1_BASE+MSM_PMEM_GPU1_SIZE-1,
+		.start  = MSM_PMEM_GPU1_BASE,
+		.end    = MSM_PMEM_GPU1_BASE+MSM_PMEM_GPU1_SIZE-1,
 		.name	= "ebi",
 	},
 	{
@@ -550,57 +579,75 @@ static struct platform_device hw3d_device = {
 	.resource	= resources_hw3d,
 };
 
-void __init msm_add_mem_devices(struct msm_pmem_setting *setting)
-{
-	if (setting->pmem_size) {
-		android_pmem_pdata.start = setting->pmem_start;
-		android_pmem_pdata.size = setting->pmem_size;
-		platform_device_register(&android_pmem_device);
-	}
+#define SND(num, desc) { .name = desc, .id = num }
+static struct snd_endpoint snd_endpoints_list[] = {
+//	SND(0, "HANDSET"),
+//	SND(1, "SPEAKER"),
+//	SND(2, "HEADSET"),
+//	SND(3, "BT"),
+//	SND(44, "BT_EC_OFF"),
+//	SND(10, "HEADSET_AND_SPEAKER"),
+//	SND(256, "CURRENT"),
+	SND(0, "HANDSET"),
+	SND(2, "HEADSET"),
+	SND(3, "STEREO_HEADSET"),
+	SND(3, "HEADSET_AND_SPEAKER"),
+	SND(6, "SPEAKER"),
+	SND(26, "SPEAKER_MIDI"),
+	SND(12 , "BT"),
+	SND(16, "IN_S_SADC_OUT_HANDSET"),
+	SND(25, "IN_S_SADC_OUT_SPEAKER_PHONE"),
+	SND(28, "CURRENT"),
 
-	if (setting->pmem_adsp_size) {
-		android_pmem_adsp_pdata.start = setting->pmem_adsp_start;
-		android_pmem_adsp_pdata.size = setting->pmem_adsp_size;
-		platform_device_register(&android_pmem_adsp_device);
-	}
+	/* Bluetooth accessories. */
 
-//	if (setting->pmem_gpu0_size && setting->pmem_gpu1_size) {
-//		struct resource *res;
-//
-//		res = platform_get_resource_byname(&hw3d_device, IORESOURCE_MEM,
-//						   "smi");
-//		res->start = setting->pmem_gpu0_start;
-//		res->end = res->start + setting->pmem_gpu0_size - 1;
-//
-//		res = platform_get_resource_byname(&hw3d_device, IORESOURCE_MEM,
-//						   "ebi");
-//		res->start = android_pmem_gpu1_pdata.start;
-//		res->end = res->start + setting->pmem_gpu1_size - 1;
-//		platform_device_register(&hw3d_device);
-//	}
+	SND(12, "HTC BH S100"),
+	SND(13, "HTC BH M100"),
+	SND(14, "Motorola H500"),
+	SND(15, "Nokia HS-36W"),
+	SND(16, "PLT 510v.D"),
+	SND(17, "M2500 by Plantronics"),
+	SND(18, "Nokia HDW-3"),
+	SND(19, "HBH-608"),
+	SND(20, "HBH-DS970"),
+	SND(21, "i.Tech BlueBAND"),
+	SND(22, "Nokia BH-800"),
+	SND(23, "Motorola H700"),
+	SND(24, "HTC BH M200"),
+	SND(25, "Jabra JX10"),
+	SND(26, "320Plantronics"),
+	SND(27, "640Plantronics"),
+	SND(28, "Jabra BT500"),
+	SND(29, "Motorola HT820"),
+	SND(30, "HBH-IV840"),
+	SND(31, "6XXPlantronics"),
+	SND(32, "3XXPlantronics"),
+	SND(33, "HBH-PV710"),
+	SND(34, "Motorola H670"),
+	SND(35, "HBM-300"),
+	SND(36, "Nokia BH-208"),
+	SND(37, "Samsung WEP410"),
+	SND(38, "Jabra BT8010"),
+	SND(39, "Motorola S9"),
+	SND(40, "Jabra BT620s"),
+	SND(41, "Nokia BH-902"),
+	SND(42, "HBH-DS220"),
+	SND(43, "HBH-DS980"),
+};
+#undef SND
 
+static struct msm_snd_endpoints galaxy_snd_endpoints = {
+	.endpoints = snd_endpoints_list,
+	.num = ARRAY_SIZE(snd_endpoints_list),
+};
 
-	if (setting->pmem_camera_size) {
-		android_pmem_camera_pdata.start = setting->pmem_camera_start;
-		android_pmem_camera_pdata.size = setting->pmem_camera_size;
-		platform_device_register(&android_pmem_camera_device);
-	}
-
-	if (setting->pmem_kernel_ebi1_size) {
-		android_pmem_kernel_ebi1_pdata.start = setting->pmem_kernel_ebi1_start;
-		android_pmem_kernel_ebi1_pdata.size = setting->pmem_kernel_ebi1_size;
-		platform_device_register(&android_pmem_kernel_ebi1_device);
-	}
-
-//	if (setting->ram_console_size) {
-//		ram_console_resource[0].start = setting->ram_console_start;
-//		ram_console_resource[0].end = setting->ram_console_start
-//			+ setting->ram_console_size - 1;
-//		platform_device_register(&ram_console_device);
-//	}
-//	platform_device_register(&ram_console_device);
-}
-
+static struct platform_device galaxy_snd = {
+	.name = "msm_snd",
+	.id = -1,
+	.dev	= {
+		.platform_data = &galaxy_snd_endpoints,
+	},
+};
 void __init msm_add_usb_devices(void)
 {
 	/* setup */
@@ -614,6 +661,9 @@ void __init msm_add_usb_devices(void)
 #ifdef CONFIG_USB_ANDROID_RNDIS
 	platform_device_register(&rndis_device);
 #endif
+#ifdef CONFIG_USB_ANDROID_DIAG
+	platform_device_register(&usb_diag_device);
+#endif
 	msm_hsusb_set_vbus_state(1);
 }
 
@@ -625,21 +675,70 @@ static void __init msm_fb_add_devices(void)
 	//msm_fb_register_device("emdh", &mddi_pdata);
 }
 
+static uint32_t new_board_gpio_table[] = {
+	GPIO_CFG(38,  0, GPIO_INPUT, GPIO_PULL_UP, GPIO_2MA), /* SEND_END */
+	GPIO_CFG(20,  0, GPIO_INPUT, GPIO_NO_PULL, GPIO_2MA), /* T_FLASH_DET */
+	GPIO_CFG(85,  0, GPIO_OUTPUT, GPIO_PULL_DOWN, GPIO_2MA), /* WLAN_BT_REG_ON */
+	GPIO_CFG(109, 0, GPIO_OUTPUT, GPIO_PULL_DOWN, GPIO_2MA), /* BT_RESET */
+};
+
+static struct bcm_bt_lpm_platform_data bcm_bt_lpm_pdata = {
+	.gpio_wake = GPIO_BT_WAKE,
+	.gpio_host_wake = GPIO_BT_HOST_WAKE,
+	.request_clock_off_locked = msm_hs_request_clock_off_locked,
+	.request_clock_on_locked = msm_hs_request_clock_on_locked,
+};
+
+struct platform_device bcm_bt_lpm_device = {
+	.name = "bcm_bt_lpm",
+	.id = 0,
+	.dev = {
+		.platform_data = &bcm_bt_lpm_pdata,
+	},
+};
+
+static unsigned bt_config_uart[] = {
+	GPIO_CFG(43, 2, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_2MA),	/* RFR */
+	GPIO_CFG(44, 2, GPIO_INPUT,  GPIO_PULL_UP, GPIO_2MA),	/* CTS */
+	GPIO_CFG(45, 2, GPIO_INPUT,  GPIO_PULL_UP, GPIO_2MA),	/* Rx */
+	GPIO_CFG(46, 3, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_2MA),	/* Tx */
+};
+//
+//static void config_gpio_table(uint32_t *table, int len)
+//{
+//	int n, rc;
+//	for (n = 0; n < len; n++) {
+//		rc = gpio_tlmm_config(table[n], GPIO_ENABLE);
+//		if (rc) {
+//			printk(KERN_ERR "%s: gpio_tlmm_config(%#x)=%d\n",
+//				__func__, table[n], rc);
+//			break;
+//		}
+//	}
+//}
+
 static struct platform_device *devices[] __initdata = {
+	&bcm_bt_lpm_device,
+	&msm_device_uart_dm1,
+	&ram_console_device,
+
 	&msm_device_uart3,
 	&msm_device_smd,
 	&msm_device_nand,
 	&msm_device_touchscreen,
-	//&msm_device_i2c,
-	//&msm_fb_device,
 
-	&hw3d_device,
+	&android_pmem_device,
+	&android_pmem_adsp_device,
+	//&android_pmem_camera_device,
+
+	//&hw3d_device,
 	&msm_fb_device,
-	&ram_console_device,
 	//&msm_device_i2c,
 	//&fish_battery_device,
+	&galaxy_snd,
 
 	/* i2c */
+	&msm_device_i2c,
 	&sensors_i2c_bus,
 	&amp_i2c_bus,
 	&touch_i2c_bus,
@@ -663,12 +762,24 @@ static void galaxy_phy_reset(void)
 	return;
 }
 
+
+static void bcm4325_init(void)	// added for bcm4325
+{
+	config_gpio_table(bt_config_uart, ARRAY_SIZE(bt_config_uart));
+
+	gpio_direction_output(GPIO_BT_WAKE, 0);       // BT_WAKE_N
+	msleep(100);
+	gpio_direction_output(GPIO_WLAN_RESET, 0);       // WLAN
+	gpio_direction_output(GPIO_BT_RESET, 0);       // BT
+	gpio_direction_output(GPIO_WLAN_BT_REG_ON, 0);       // REG_ON
+}
+
 static void __init galaxy_init(void)
 {
+	if (socinfo_init() < 0)
+		BUG();
 
-	msm_acpu_clock_init(&galaxy_clock_data);
-
-	msm_add_mem_devices(&pmem_settings);
+	//msm_acpu_clock_init(&galaxy_clock_data);
 
 	init_keypad();
 
@@ -685,7 +796,13 @@ static void __init galaxy_init(void)
 	msm_add_usb_devices();
 	msm_fb_add_devices();
 
+	msm_device_uart_dm1.dev.platform_data = NULL;
+
+	config_gpio_table(new_board_gpio_table, ARRAY_SIZE(new_board_gpio_table));
+
 	platform_add_devices(devices, ARRAY_SIZE(devices));
+
+	//bcm4325_init();
 }
 
 static void __init galaxy_fixup(struct machine_desc *desc, struct tag *tags,
@@ -706,12 +823,12 @@ static void __init msm_allocate_memory_regions(void)
 //	addr = alloc_bootmem(size);
 //	MSM_KERNEL_PANIC_DUMP_ADDR = addr;
 
-	size = MSM_PMEM_KERNEL_EBI1_SIZE;
-	addr = alloc_bootmem(size);//, 0x100000);
-	android_pmem_kernel_ebi1_pdata.start = __pa(addr);
-	android_pmem_kernel_ebi1_pdata.size = size;
-	pr_info("allocating %lu bytes at %p (%lx physical) for kernel"
-		" ebi1 pmem arena\n", size, addr, __pa(addr));
+//	size = MSM_PMEM_KERNEL_EBI1_SIZE;
+//	addr = alloc_bootmem_aligned(size, 0x100000);
+//	android_pmem_kernel_ebi1_pdata.start = __pa(addr);
+//	android_pmem_kernel_ebi1_pdata.size = size;
+//	pr_info("allocating %lu bytes at %p (%lx physical) for kernel"
+//		" ebi1 pmem arena\n", size, addr, __pa(addr));
 
 //	size = MSM_PMEM_GPU1_SIZE;
 //	addr = alloc_bootmem(size);//, 0x100000);
@@ -721,16 +838,26 @@ static void __init msm_allocate_memory_regions(void)
 //	       "for gpu1 pmem\n", size, addr, __pa(addr));
 }
 
+//static struct map_desc galaxy_io_desc[] __initdata = {
+//	{
+//		.virtual = (unsigned long) MSM_WEB_BASE,
+//		.pfn = __phys_to_pfn(MSM_WEB_PHYS),
+//		.length = MSM_WEB_SIZE,
+//		.type = MT_DEVICE_NONSHARED,
+//	},
+//};
+
 static void __init galaxy_map_io(void)
 {
 	msm_map_common_io();
+//	iotable_init(galaxy_io_desc, ARRAY_SIZE(galaxy_io_desc));
 	msm_allocate_memory_regions();
 	msm_clock_init(msm_clocks_7x01a, msm_num_clocks_7x01a);
 }
 
 MACHINE_START(GALAXY, "galaxy")
 	.boot_params	= 0x10000100,
-	//.fixup		= galaxy_fixup,
+	.fixup		= galaxy_fixup,
 	.map_io		= galaxy_map_io,
 	.init_irq	= msm_init_irq,
 	.init_machine	= galaxy_init,
