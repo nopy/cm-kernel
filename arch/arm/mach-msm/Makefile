@@ -12,6 +12,7 @@ obj-y += gpio.o generic_gpio.o
 obj-y += nand_partitions.o
 obj-y += drv_callback.o
 obj-y += htc_board_tags.o
+obj-y += modem_notifier.o
 
 obj-$(CONFIG_ARCH_QSD8X50) += sirc.o
 obj-$(CONFIG_MSM_FIQ_SUPPORT) += fiq_glue.o
@@ -60,7 +61,8 @@ obj-$(CONFIG_MACH_MAHIMAHI) += board-mahimahi-microp.o
 obj-$(CONFIG_MACH_GALAXY) += board-galaxy.o board-galaxy-mmc.o 
 obj-$(CONFIG_MACH_GALAXY) += board-galaxy-panel.o board-galaxy-keypad.o
 obj-$(CONFIG_MACH_GALAXY) += board-galaxy-rfkill.o  board-galaxy-battery.o
-obj-$(CONFIG_MACH_GALAXY) += fsa9480_i2c.o devices-msm7x00.o
+obj-$(CONFIG_MACH_GALAXY) += fsa9480_i2c.o msm_vibrator.o devices-msm7x00.o
+obj-$(CONFIG_MACH_GALAXY) += smd_ctl2.o modem_notifier.o rpc_server_lge.o
 obj-$(CONFIG_MACH_HALIBUT) += board-halibut.o devices-msm7x00.o
 obj-$(CONFIG_MACH_HALIBUT) += board-halibut-keypad.o
 obj-$(CONFIG_MACH_HALIBUT) += board-halibut-panel.o fish_battery.o
