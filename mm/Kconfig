@@ -202,7 +202,7 @@ config PHYS_ADDR_T_64BIT
 	def_bool 64BIT || ARCH_PHYS_ADDR_T_64BIT
 
 config ZONE_DMA_FLAG
-	int
+	int "ZONE_DMA_FLAG"
 	default "0" if !ZONE_DMA
 	default "1"
 

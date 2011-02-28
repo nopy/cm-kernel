@@ -159,6 +159,7 @@ config ARCH_MAY_HAVE_PC_FDC
 
 config ZONE_DMA
 	bool
+  default y
 
 config NEED_DMA_MAP_STATE
        def_bool y
