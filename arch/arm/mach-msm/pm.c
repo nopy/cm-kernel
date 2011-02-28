@@ -51,7 +51,7 @@ enum {
 	MSM_PM_DEBUG_IDLE = 1U << 6,
 	MSM_PM_DEBUG_CLOCK_VOTE = 1U << 7
 };
-static int msm_pm_debug_mask = MSM_PM_DEBUG_CLOCK_VOTE;
+static int msm_pm_debug_mask = 0xFF;//MSM_PM_DEBUG_CLOCK_VOTE;
 module_param_named(debug_mask, msm_pm_debug_mask, int, S_IRUGO | S_IWUSR | S_IWGRP);
 
 enum {
@@ -122,6 +122,33 @@ module_param_named(idle_spin_time, msm_pm_idle_spin_time, int, S_IRUGO | S_IWUSR
 
 #define PM_SMSM_WRITE_RUN	DEM_SLAVE_SMSM_RUN
 #define PM_SMSM_READ_RUN	DEM_MASTER_SMSM_RUN
+#endif
+
+#if defined(CONFIG_MACH_GALAXY)
+#include "../../../drivers/dpram/dpram.h"
+
+#define WRITE_TO_DPRAM(dest, src, size) memcpy((void *)(SmemBase + dest), src, size)
+#define MSM_A2M_INT(n) (MSM_CSR_BASE + 0x400 + (n) * 4)
+
+static volatile unsigned char *SmemBase;
+
+dpram_device_t dpram_table[1] = {
+	{
+		.in_head_addr = DPRAM_PHONE2PDA_FORMATTED_HEAD_ADDRESS,
+		.in_tail_addr = DPRAM_PHONE2PDA_FORMATTED_TAIL_ADDRESS,
+		.in_buff_addr = DPRAM_PHONE2PDA_FORMATTED_BUFFER_ADDRESS,
+		.in_buff_size = DPRAM_PHONE2PDA_FORMATTED_SIZE,
+
+		.out_head_addr = DPRAM_PDA2PHONE_FORMATTED_HEAD_ADDRESS,
+		.out_tail_addr = DPRAM_PDA2PHONE_FORMATTED_TAIL_ADDRESS,
+		.out_buff_addr = DPRAM_PDA2PHONE_FORMATTED_BUFFER_ADDRESS,
+		.out_buff_size = DPRAM_PDA2PHONE_FORMATTED_SIZE,
+
+		.mask_req_ack = INT_MASK_REQ_ACK_F,
+		.mask_res_ack = INT_MASK_RES_ACK_F,
+		.mask_send = INT_MASK_SEND_F,
+	}
+};
 #endif
 
 int msm_pm_collapse(void);
@@ -651,8 +678,42 @@ static uint32_t restart_reason = 0;
 
 static void msm_pm_power_off(void)
 {
+#if  !defined(CONFIG_MACH_GALAXY)
 	msm_proc_comm(PCOM_POWER_DOWN, 0, 0);
 	for (;;) ;
+#else
+	// For using IPC
+	int cnt;
+	dpram_device_t *dpram_dev = &dpram_table[0];
+	char *buf;
+	u16 irq_mask = 0;
+
+	printk("%s\n", __FUNCTION__);
+	buf = (char *)kmalloc(12, GFP_KERNEL);
+	if(!buf) {
+		printk("malloc fail\n");
+		return;
+	}
+
+	SmemBase = (volatile unsigned char *)(smem_alloc(SMEM_ID_VENDOR0, 0x4000*2));
+	if (!SmemBase) {
+		printk("smem_alloc failed : SmemBase = 0x%x\n", SmemBase);
+		return;
+	}
+
+	irq_mask = 0xCE;
+	WRITE_TO_DPRAM(DPRAM_PDA2PHONE_INTERRUPT_ADDRESS, &irq_mask,
+			DPRAM_INTERRUPT_PORT_SIZE);
+
+	writel(1, MSM_A2M_INT(3));
+
+#if 0
+	for (;;) ;
+#else
+	mdelay(10000);
+	msm_proc_comm(PCOM_POWER_DOWN, 0, 0);
+#endif
+#endif
 }
 
 static bool console_flushed;
