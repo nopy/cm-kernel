@@ -289,7 +289,11 @@ struct tty_struct {
 	void *driver_data;
 	struct list_head tty_files;
 
+#ifdef CONFIG_MACH_GALAXY
+#define N_TTY_BUF_SIZE 4096 * 8
+#else
 #define N_TTY_BUF_SIZE 4096
+#endif
 
 	/*
 	 * The following is data for the N_TTY line discipline.  For
