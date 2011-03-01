@@ -228,6 +228,8 @@ msm_pm_wait_state(uint32_t wait_all_set, uint32_t wait_all_clear,
 	uint32_t state;
 
 	for (i = 0; i < 100000; i++) {
+  // change in original samsung kernel
+  //for (i = 0; i < 2000000; i++) {
 		state = smsm_get_state(PM_SMSM_READ_STATE);
 		if (((wait_all_set || wait_all_clear) &&
 		     !(~state & wait_all_set) && !(state & wait_all_clear)) ||
@@ -536,6 +538,8 @@ enter_failed:
 	if (enter_state) {
 		smsm_change_state(PM_SMSM_WRITE_STATE, exit_state, PM_SMSM_WRITE_RUN);
 		msm_pm_wait_state(PM_SMSM_READ_RUN, 0, 0, 0);
+    // change in original samsung kernel
+		//msm_pm_wait_state(PM_SMSM_READ_RUN, 0, 0, 0);
 		if (msm_pm_debug_mask & MSM_PM_DEBUG_STATE)
 			printk(KERN_INFO "msm_sleep(): sleep exit "
 			       "A11S_CLK_SLEEP_EN %x, A11S_PWRDOWN %x, "
@@ -929,6 +933,7 @@ static void __init boot_lock_nohalt(void)
 
 static int __init msm_pm_init(void)
 {
+  unsigned int id = 0;
 	pm_power_off = msm_pm_power_off;
 	arm_pm_restart = msm_pm_restart;
 	msm_pm_max_sleep_time = 0;
@@ -949,6 +954,9 @@ static int __init msm_pm_init(void)
 	create_proc_read_entry("msm_pm_stats", S_IRUGO,
 				NULL, msm_pm_read_proc, NULL);
 #endif
+  // change in original samsung kernel
+	// id = 0;
+	// msm_proc_comm(PCOM_CUSTOMER_CMD3, &id, 0); 
 
   boot_lock_nohalt();
 	return 0;
