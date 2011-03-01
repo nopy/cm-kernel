@@ -2572,6 +2572,8 @@ static void capela_set_backlight_level(uint8_t level)
 {
 	unsigned int brightness_level;
 
+  // temp disable as it KP
+  return;
 	capela_backlight_is_dimming =0;
 	 
     if(level==20)
