@@ -155,4 +155,10 @@
 #define MSM_GCC_SIZE          SZ_4K
 #endif
 
+// Define needed for early ramconsole
+// disable because it does not work
+//#define MSM_RAM_CONSOLE_BASE    IOMEM(0xF9100000)
+//#define MSM_RAM_CONSOLE_PHYS    0x16500000
+//#define MSM_RAM_CONSOLE_SIZE    0x00040000
+
 #endif
