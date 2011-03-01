@@ -254,7 +254,7 @@ int fsa_suspended = 0;
 #define MICROUSB_DET			MSM_GPIO_TO_INT(GPIO_MICROUSB_DET)
 
 void AutoSetting(void);
-extern unsigned char ftm_sleep;
+//extern unsigned char ftm_sleep;
 extern int cable_status_update(int status);
 
 static irqreturn_t usb_switch_interrupt_handler(int irq, void *data)
@@ -262,8 +262,8 @@ static irqreturn_t usb_switch_interrupt_handler(int irq, void *data)
 	int ret;
 	disable_irq(irq);
 
-	if (ftm_sleep == 1)
-		AutoSetting();
+/*	if (ftm_sleep == 1)
+	 AutoSetting();*/
 
 	enable_irq(irq);
 	return IRQ_HANDLED;
@@ -303,23 +303,25 @@ static int fsa9480_probe(struct i2c_client *client)
 #if 1
 	int retval;
 	//ret = gpio_configure(GPIO_MICROUSB_DET, GPIOF_INPUT | IRQF_TRIGGER_LOW);
-	
+	printk("fsa9480 : init 1 irq:%d\n", MICROUSB_DET);
 	retval = gpio_request(49 , "micro usb switch");
 	if (retval  < 0) {
 		printk(KERN_ERR "<!> gpio_request failed!!!\n");
 	}
 
 	retval = gpio_direction_input(49);
+	printk("fsa9480 : init 2\n");
 	if (retval < 0) {
 		printk(KERN_ERR "<!> gpio_direction_input failed!!!\n");
 	}
 	
-	if(request_irq(MICROUSB_DET, usb_switch_interrupt_handler, IRQF_TRIGGER_FALLING, "MICROUSB", NULL)) {
+	/*if(request_irq(MICROUSB_DET, usb_switch_interrupt_handler, IRQF_TRIGGER_LOW | IRQF_ONESHOT, "MICROUSB", 0)) {
 		free_irq(MICROUSB_DET, NULL);
 		printk("[error] usb_switch_interrupt_handler can't register the handler! and passing....\n");
 	}
+	printk("fsa9480 : init 3\n");
 
-	retval = set_irq_wake(MICROUSB_DET, 1);
+	retval = set_irq_wake(MICROUSB_DET, 1);*/
 #endif
 
 	return 0;
