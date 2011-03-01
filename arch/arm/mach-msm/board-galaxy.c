@@ -788,23 +788,23 @@ static uint32_t camera_on_gpio_table[] = {
 //}
 
 static struct platform_device *devices[] __initdata = {
-	&bcm_bt_lpm_device,
-	&msm_device_uart_dm1,
+	//&bcm_bt_lpm_device,
+	// &msm_device_uart1,
 	&ram_console_device,
-
 	&msm_device_uart3,
+#ifdef CONFIG_SERIAL_MSM_HS
+	&msm_device_uart_dm1,
+#endif
+
 	&msm_device_smd,
 	&msm_device_nand,
-	&msm_device_touchscreen,
 
 	&android_pmem_device,
 	&android_pmem_adsp_device,
-	//&android_pmem_camera_device,
+	&android_pmem_camera_device,
 
-	//&hw3d_device,
+	&hw3d_device,
 	&msm_fb_device,
-	//&msm_device_i2c,
-	//&fish_battery_device,
 	&galaxy_snd,
 
 	/* i2c */
@@ -864,6 +864,8 @@ static void __init galaxy_init(void)
 
 	msm_acpu_clock_init(&galaxy_clock_data);
 
+
+	msm_hw_reset_hook = galaxy_reset;
 
 	init_keypad();
 
