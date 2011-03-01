@@ -954,9 +954,12 @@ static int __init msm_pm_init(void)
 	create_proc_read_entry("msm_pm_stats", S_IRUGO,
 				NULL, msm_pm_read_proc, NULL);
 #endif
-  // change in original samsung kernel
-	// id = 0;
-	// msm_proc_comm(PCOM_CUSTOMER_CMD3, &id, 0); 
+#ifdef CONFIG_MACH_GALAXY
+	// change in original samsung kernel
+	// phone reboot after few sec without this
+	id = 0;
+	msm_proc_comm(PCOM_CUSTOMER_CMD3, &id, 0);
+#endif
 
   boot_lock_nohalt();
 	return 0;
