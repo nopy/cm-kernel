@@ -14,6 +14,8 @@ initrd_phys-y		:= 0x10800000
 endif
 endif
 
+initrd_phys-$(CONFIG_MACH_GALAXY)	:= 0x11000000
+
 # for now, override for QSD8x50
   zreladdr-$(CONFIG_ARCH_QSD8X50)		:= 0x20008000
 params_phys-$(CONFIG_ARCH_QSD8X50)		:= 0x20000100
