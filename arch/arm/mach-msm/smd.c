@@ -105,11 +105,18 @@ static inline void notify_dsp_smd(void)
 static void smd_diag(void)
 {
 	char *x;
+	int size;
 
 	x = smem_find(ID_DIAG_ERR_MSG, SZ_DIAG_ERR_MSG);
 	if (x != 0) {
 		x[SZ_DIAG_ERR_MSG - 1] = 0;
 		pr_info("smem: DIAG '%s'\n", x);
+	}
+
+	x = smem_item(SMEM_ERR_CRASH_LOG, &size);
+	if (x != 0) {
+		x[size - 1] = 0;
+		printk(KERN_ERR "smem: CRASH LOG\n'%s'\n", x);
 	}
 }
 
@@ -162,6 +169,7 @@ static void handle_modem_crash(void)
 
   Arm9Crashed = 1;
   printk("[HSI] %s : Exit endless loop\n", __func__);
+  smd_diag();
 	msm_pm_flush_console();
   return 0;
 
