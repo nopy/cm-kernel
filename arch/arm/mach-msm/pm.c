@@ -51,7 +51,7 @@ enum {
 	MSM_PM_DEBUG_IDLE = 1U << 6,
 	MSM_PM_DEBUG_CLOCK_VOTE = 1U << 7
 };
-static int msm_pm_debug_mask = 0xFF;//MSM_PM_DEBUG_CLOCK_VOTE;
+static int msm_pm_debug_mask = 0xFFFFFFF;//MSM_PM_DEBUG_CLOCK_VOTE;
 module_param_named(debug_mask, msm_pm_debug_mask, int, S_IRUGO | S_IWUSR | S_IWGRP);
 
 enum {
@@ -671,7 +671,7 @@ static struct platform_suspend_ops msm_pm_ops = {
 };
 
 #if defined(CONFIG_ARCH_MSM7X00A)
-static uint32_t restart_reason = 0x776655AA;
+static uint32_t restart_reason = 0xAA556677;
 #else
 static uint32_t restart_reason = 0;
 #endif
@@ -741,6 +741,8 @@ void msm_pm_flush_console(void)
 	release_console_sem();
 }
 
+extern smsm_reset_modem(unsigned mode);
+
 static void msm_pm_restart(char str)
 {
 	msm_pm_flush_console();
@@ -751,9 +753,16 @@ static void msm_pm_restart(char str)
 	 */
 	if ((restart_reason == 0x776655AA) && msm_hw_reset_hook) {
 		msm_hw_reset_hook();
+	} else if(restart_reason == 0xAAAAAAAA) {
+		restart_reason = 0x776655AA;
+		msm_proc_comm(PCOM_RESET_APPS, &restart_reason, 0);
 	} else {
-		msm_proc_comm(PCOM_RESET_CHIP, &restart_reason, 0);
+		msm_proc_comm(PCOM_RESET_CHIP_IMM, &restart_reason, 0);
+		smsm_reset_modem(SMSM_SYSTEM_REBOOT);
 	}
+//	} else {
+//		msm_proc_comm(PCOM_RESET_CHIP, &restart_reason, 0);
+//	}
 	for (;;) ;
 }
 
@@ -772,6 +781,8 @@ static int msm_reboot_call(struct notifier_block *this, unsigned long code, void
 			restart_reason = 0x6f656d00 | code;
 		} else if (!strcmp(cmd, "force-hard")) {
 			restart_reason = 0x776655AA;
+		} else if (!strcmp(cmd, "firmware_update")) {
+			restart_reason = 0x77665504;
 		} else {
 			restart_reason = 0x77665501;
 		}
