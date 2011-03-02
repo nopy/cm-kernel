@@ -65,6 +65,7 @@ extern unsigned int diag_threshold_registration;
 
 #define APPEND_DEBUG(ch) \
 do {							\
+	printk("DIAG: %c\n", ch); \
 	diag_debug_buf[diag_debug_buf_idx] = ch; \
 	(diag_debug_buf_idx < 1023) ? \
 	(diag_debug_buf_idx++) : (diag_debug_buf_idx = 0); \

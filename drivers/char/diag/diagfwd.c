@@ -105,6 +105,7 @@ void __diag_smd_send_req(void)
 			else {
 				APPEND_DEBUG('i');
 				smd_read(driver->ch, buf, r);
+				printk("DIAG-R: %.*s\n", r, (char *) buf);
 				APPEND_DEBUG('j');
 				write_ptr_modem->length = r;
 				*in_busy_ptr = 1;
@@ -791,7 +792,7 @@ static int diag_smd_probe(struct platform_device *pdev)
 {
 	int r = 0;
 
-	if (pdev->id == 0)
+	//if (pdev->id == 0)
 		r = smd_open("SMD_DIAG", &driver->ch, driver, diag_smd_notify);
 #if defined(CONFIG_MSM_N_WAY_SMD)
 	if (pdev->id == 1)
