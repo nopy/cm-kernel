@@ -416,8 +416,8 @@ static char *usb_functions_all[] = {
 static struct android_usb_product usb_products[] = {
 	{
 		.product_id	= 0x6640,
-		.num_functions	= ARRAY_SIZE(usb_functions_adb_diag),
-		.functions	= usb_functions_adb_diag,
+		.num_functions	= ARRAY_SIZE(usb_functions_ums_adb),
+		.functions	= usb_functions_ums_adb,
 	},
 	{
 		.product_id	= 0x6601,
