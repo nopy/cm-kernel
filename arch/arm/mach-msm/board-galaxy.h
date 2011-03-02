@@ -62,6 +62,7 @@ struct msm_pmem_setting{
 
 #define GPIO_FLASH_DETECT	20
 #define GPIO_LCD_VSYNC		97
+#define GPIO_PS_HOLD		25
 
 /* I2C Bus Num */
 #define I2C_BUS_NUM_SENSORS		1

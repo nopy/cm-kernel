@@ -843,6 +843,11 @@ static void bcm4325_init(void)	// added for bcm4325
 	gpio_direction_output(GPIO_WLAN_BT_REG_ON, 0);       // REG_ON
 }
 
+static void galaxy_reset(void)
+{
+	gpio_set_value(GPIO_PS_HOLD, 0);
+}
+
 static void __init config_gpios(void) {
 	config_gpio_table(bt_config_uart, ARRAY_SIZE(bt_config_uart));
 	config_gpio_table(camera_off_gpio_table, ARRAY_SIZE(camera_off_gpio_table));
