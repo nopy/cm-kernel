@@ -4,7 +4,7 @@
 
 // SMI Bank
 
-#define MSM_SMI_BASE			0x01000000
+#define MSM_SMI_BASE			0x00100000
 #define MSM_SMI_SIZE			0x00800000
 
 #define MSM_PMEM_GPU0_BASE		MSM_SMI_BASE
