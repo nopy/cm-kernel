@@ -46,6 +46,7 @@
 #include <mach/usbdiag.h>
 #include <mach/bcm_bt_lpm.h>
 #include <mach/msm_serial_hs.h>
+#include <mach/system.h>
 
 #include <linux/mtd/nand.h>
 #include <linux/mtd/partitions.h>
@@ -697,12 +698,81 @@ struct platform_device bcm_bt_lpm_device = {
 	},
 };
 
+
+#ifdef CONFIG_SERIAL_MSM_HS
+static struct msm_serial_hs_platform_data msm_uart_dm1_pdata = {
+	.rx_wakeup_irq = MSM_GPIO_TO_INT(45),
+	.inject_rx_on_wakeup = 1,
+	.rx_to_inject = 0x32,
+};
+#endif
+
 static unsigned bt_config_uart[] = {
+#ifdef CONFIG_SERIAL_MSM_HS
 	GPIO_CFG(43, 2, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_2MA),	/* RFR */
 	GPIO_CFG(44, 2, GPIO_INPUT,  GPIO_PULL_UP, GPIO_2MA),	/* CTS */
 	GPIO_CFG(45, 2, GPIO_INPUT,  GPIO_PULL_UP, GPIO_2MA),	/* Rx */
 	GPIO_CFG(46, 3, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_2MA),	/* Tx */
+#else
+	GPIO_CFG(43, 1, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_4MA), /* RTS */
+	GPIO_CFG(44, 1, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_4MA), /* CTS */
+	GPIO_CFG(45, 1, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_4MA), /* RX */
+	GPIO_CFG(46, 1, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_4MA), /* TX */
+#endif
 };
+
+static uint32_t camera_off_gpio_table[] = {
+	/* parallel CAMERA interfaces */
+	GPIO_CFG(4, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DAT4 */
+	GPIO_CFG(5, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DAT5 */
+	GPIO_CFG(6, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DAT6 */
+	GPIO_CFG(7, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DAT7 */
+	GPIO_CFG(8, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DAT8 */
+	GPIO_CFG(9, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DAT9 */
+	GPIO_CFG(10, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DAT10 */
+	GPIO_CFG(11, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DAT11 */
+	GPIO_CFG(12, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* PCLK */
+	GPIO_CFG(13, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* HSYNC_IN */
+	GPIO_CFG(14, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* VSYNC_IN */
+	GPIO_CFG(15, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_2MA), /* MCLK */
+	// GPIO_CFG(23, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), // PGH CAM_FLASH_EN
+	// GPIO_CFG(31, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), // PGH CAM_FLASH_SET
+	GPIO_CFG(36, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA),
+	GPIO_CFG(37, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA),
+	GPIO_CFG(60, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA),
+	GPIO_CFG(61, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA),
+};
+
+static uint32_t camera_on_gpio_table[] = {
+	/* parallel CAMERA interfaces */
+	GPIO_CFG(4, 1, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DAT4 */
+	GPIO_CFG(5, 1, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DAT5 */
+	GPIO_CFG(6, 1, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DAT6 */
+	GPIO_CFG(7, 1, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DAT7 */
+	GPIO_CFG(8, 1, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DAT8 */
+	GPIO_CFG(9, 1, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DAT9 */
+	GPIO_CFG(10, 1, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DAT10 */
+	GPIO_CFG(11, 1, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DAT11 */
+	GPIO_CFG(12, 1, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_16MA), /* PCLK */
+	GPIO_CFG(13, 1, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* HSYNC_IN */
+	GPIO_CFG(14, 1, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* VSYNC_IN */
+
+#if 1//PGH EDITED FOR CLOCK Stabilization 2009-05-23
+	GPIO_CFG(15, 1, GPIO_OUTPUT, GPIO_PULL_DOWN, GPIO_2MA), /* MCLK */
+#else//ORG
+	GPIO_CFG(15, 1, GPIO_OUTPUT, GPIO_PULL_DOWN, GPIO_16MA), /* MCLK */
+#endif//PGH
+
+	// GPIO_CFG(23, 0, GPIO_OUTPUT, GPIO_PULL_DOWN, GPIO_2MA), // PGH CAM_FLASH_EN
+	// GPIO_CFG(31, 0, GPIO_OUTPUT, GPIO_PULL_DOWN, GPIO_2MA), // PGH CAM_FLASH_SET
+
+	GPIO_CFG(36, 0, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_2MA),
+	GPIO_CFG(37, 0, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_2MA),
+
+	GPIO_CFG(60, 0, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_2MA),
+	GPIO_CFG(61, 0, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_2MA),
+};
+
 //
 //static void config_gpio_table(uint32_t *table, int len)
 //{
@@ -765,7 +835,6 @@ static void galaxy_phy_reset(void)
 
 static void bcm4325_init(void)	// added for bcm4325
 {
-	config_gpio_table(bt_config_uart, ARRAY_SIZE(bt_config_uart));
 
 	gpio_direction_output(GPIO_BT_WAKE, 0);       // BT_WAKE_N
 	msleep(100);
@@ -774,12 +843,21 @@ static void bcm4325_init(void)	// added for bcm4325
 	gpio_direction_output(GPIO_WLAN_BT_REG_ON, 0);       // REG_ON
 }
 
+static void __init config_gpios(void) {
+	config_gpio_table(bt_config_uart, ARRAY_SIZE(bt_config_uart));
+	config_gpio_table(camera_off_gpio_table, ARRAY_SIZE(camera_off_gpio_table));
+}
+
+
 static void __init galaxy_init(void)
 {
 	if (socinfo_init() < 0)
 		BUG();
 
-	//msm_acpu_clock_init(&galaxy_clock_data);
+	config_gpios();
+
+	msm_acpu_clock_init(&galaxy_clock_data);
+
 
 	init_keypad();
 
@@ -792,6 +870,9 @@ static void __init galaxy_init(void)
 	i2c_register_board_info(I2C_BUS_NUM_CAMERA, &cam_i2c_device, 1);
 
 	galaxy_init_mmc();
+#ifdef CONFIG_SERIAL_MSM_HS
+  msm_device_uart_dm1.dev.platform_data = &msm_uart_dm1_pdata;
+#endif
 
 	msm_add_usb_devices();
 	msm_fb_add_devices();
@@ -856,6 +937,10 @@ static void __init galaxy_map_io(void)
 }
 
 MACHINE_START(GALAXY, "galaxy")
+#ifdef CONFIG_MSM_DEBUG_UART
+	.phys_io        = MSM_DEBUG_UART_PHYS,
+	.io_pg_offst    = ((MSM_DEBUG_UART_BASE) >> 18) & 0xfffc,
+#endif
 	.boot_params	= 0x10000100,
 	.fixup		= galaxy_fixup,
 	.map_io		= galaxy_map_io,
