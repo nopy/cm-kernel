@@ -824,7 +824,8 @@ static struct msm_acpu_clock_platform_data galaxy_clock_data = {
 	.max_speed_delta_khz = 256000,
 	.vdd_switch_time_us = 62,
 	.power_collapse_khz = 19200000,
-	.wait_for_irq_khz = 128000000,
+//	.wait_for_irq_khz = 128000000,
+	.wait_for_irq_khz = 176000000,
 };
 
 static void galaxy_phy_reset(void)
