@@ -51,7 +51,7 @@ enum {
 	MSM_PM_DEBUG_IDLE = 1U << 6,
 	MSM_PM_DEBUG_CLOCK_VOTE = 1U << 7
 };
-static int msm_pm_debug_mask = 0xFFFFFFF;//MSM_PM_DEBUG_CLOCK_VOTE;
+static int msm_pm_debug_mask = 0x7; //MSM_PM_DEBUG_CLOCK_VOTE;
 module_param_named(debug_mask, msm_pm_debug_mask, int, S_IRUGO | S_IWUSR | S_IWGRP);
 
 enum {
