@@ -203,7 +203,7 @@ static struct platform_device touch_i2c_bus = {
 
 static struct i2c_board_info touch_i2c_device = {
 	I2C_BOARD_INFO("melfas-tsi-ts", 0x20),
-	.irq = MSM_GPIO_TO_INT(GPIO_TOUCH_IRQ),
+//	.irq = MSM_GPIO_TO_INT(GPIO_TOUCH_IRQ),
 };
 
 /* camera */

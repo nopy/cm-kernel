@@ -354,6 +354,36 @@ config TOUCHSCREEN_DUPLICATED_FILTER
           This enables filter for duplicated report in touchscreen driver
           This support will discard small movement report in touchscreen driver
 
+config TOUCHSCREEN_MELFAS_I2C_TSI
+  tristate "Melfas i2c touchscreen"
+  depends on I2C
+  default n 
+  help
+    This enables support for Melfas over I2C based touchscreens.
+
+config TOUCHSCREEN_MELFAS_I2C_TSI_FW_UPDATE
+  bool "FW_UPDATE"
+  depends on TOUCHSCREEN_MELFAS_I2C_TSI
+  default n
+  help
+    This enables support for Melfas over I2C based touchscreens.
+    Touch sceen FW update
+
+config TOUCHSCREEN_MELFAS_I2C_TSI_DEVICE_CHECK
+  bool "DEVICE CHECK FUNC"
+  depends on TOUCHSCREEN_MELFAS_I2C_TSI
+  default n
+  help
+    This enables support for Melfas over I2C based touchscreens.
+    Touch sceen Device in region (x<50 && y<50)
+    
+config TOUCHSCREEN_MELFAS_I2C_TSI_COMBO
+  tristate "Melfas combo 5000 6000"
+  depends on I2C
+  default n 
+  help
+    This enables support for Melfas over I2C based touchscreens.    
+
 config TOUCHSCREEN_TOUCHRIGHT
 	tristate "Touchright serial touchscreen"
 	select SERIO
