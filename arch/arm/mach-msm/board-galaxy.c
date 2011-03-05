@@ -398,6 +398,14 @@ static char *usb_functions_adb_diag[] = {
 };
 #endif
 
+#ifdef CONFIG_USB_ANDROID_ACM
+static char *usb_functions_adb_ums_acm[] = {
+	"usb_mass_storage",
+	"adb",
+	"acm",
+};
+#endif
+
 static char *usb_functions_all[] = {
 #ifdef CONFIG_USB_ANDROID_RNDIS
 	"rndis",
@@ -416,8 +424,8 @@ static char *usb_functions_all[] = {
 static struct android_usb_product usb_products[] = {
 	{
 		.product_id	= 0x6640,
-		.num_functions	= ARRAY_SIZE(usb_functions_ums_adb),
-		.functions	= usb_functions_ums_adb,
+		.num_functions	= ARRAY_SIZE(usb_functions_adb_ums_acm),
+		.functions	= usb_functions_adb_ums_acm,
 	},
 	{
 		.product_id	= 0x6601,
