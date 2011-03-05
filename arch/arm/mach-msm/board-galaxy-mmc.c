@@ -4,13 +4,13 @@
 #include <asm/mach/mmc.h>
 #include <mach/vreg.h>
 #include <linux/platform_device.h>
+#include <linux/mmc/sdio_ids.h>
+
 #include "proc_comm.h"
 #include "board-galaxy.h"
 
 int __init msm_add_sdcc(unsigned int controller, struct mmc_platform_data *plat,
 						unsigned int stat_irq, unsigned long stat_irq_flags);
-
-static struct vreg *vreg_mmc;
 
 static unsigned sdcc_cfg_data[][6] = {
 	/* SDC1 configs */
@@ -42,19 +42,7 @@ static unsigned sdcc_cfg_data[][6] = {
 	},
 };
 
-//void config_gpio_table(uint32_t *table, int len)
-//{
-//	int n, rc;
-//	for (n = 0; n < len; n++) {
-//		rc = gpio_tlmm_config(table[n], GPIO_ENABLE);
-//		if (rc) {
-//			printk(KERN_ERR "%s: gpio_tlmm_config(%#x)=%d\n",
-//				__func__, table[n], rc);
-//			break;
-//		}
-//	}
-//}
-
+extern int bcm4325_set_core_power(unsigned bcm_core, unsigned pow_on);
 static unsigned long vreg_sts, gpio_sts;
 static struct vreg *vreg_mmc, *vreg_movinand;
 
@@ -65,7 +53,7 @@ static void msm_sdcc_setup_gpio(int dev_id, unsigned int enable)
 	if (dev_id ==1)
 	{
 		if (!(test_bit(dev_id, &gpio_sts)^enable)) {
-    			//printk("sdcc_setup_gpio test_bit error....\n");
+    			printk("sdcc_setup_gpio test_bit error....\n");
 			return;
 		}
 
@@ -83,6 +71,12 @@ static void msm_sdcc_setup_gpio(int dev_id, unsigned int enable)
 				__func__, sdcc_cfg_data[dev_id - 1][i], rc);
 		}
 	}
+}
+
+static int msm_wifi_setup_power(int dev_id, int on)
+{
+	printk("\n wifi_setup_power: %d \n", on);
+	return 0;
 }
 
 static void sdcc_gpio_init(void)
@@ -226,9 +220,148 @@ static struct mmc_platform_data movinand_sdcc_data = {
 	.translate_vdd	= galaxy_movinand_setup_power,
 };
 
+static uint32_t wifi_on_gpio_table[] = {			// needed to set GPIO. but...
+	GPIO_CFG(62, 2, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_8MA), /* CLK */
+	GPIO_CFG(63, 2, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_8MA), /* CMD */
+	GPIO_CFG(64, 2, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_8MA), /* DAT3 */
+	GPIO_CFG(65, 2, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_8MA), /* DAT2 */
+	GPIO_CFG(66, 2, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_8MA), /* DAT1 */
+	GPIO_CFG(67, 2, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_8MA), /* DAT0 */
+	GPIO_CFG(GPIO_WLAN_HOST_WAKE, 0, GPIO_INPUT, GPIO_NO_PULL, GPIO_2MA),  /* WLAN_HOST_WAKE	*/
+#if !defined(CONFIG_MACH_GALAXY_REV05)
+	GPIO_CFG(20, 0, GPIO_INPUT, GPIO_NO_PULL, GPIO_4MA),  /* WLAN_HOST_WAKE	*/
+#endif
+};
+
+static uint32_t wifi_off_gpio_table[] = {
+	GPIO_CFG(62, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_8MA), /* CLK */
+	GPIO_CFG(63, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_8MA), /* CMD */
+	GPIO_CFG(64, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_8MA), /* DAT3 */
+	GPIO_CFG(65, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_8MA), /* DAT2 */
+	GPIO_CFG(66, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_8MA), /* DAT1 */
+	GPIO_CFG(67, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_8MA), /* DAT0 */
+	GPIO_CFG(GPIO_WLAN_HOST_WAKE, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_2MA),  /* WLAN_HOST_WAKE */
+#if !defined(CONFIG_MACH_GALAXY_REV05)
+	GPIO_CFG(20, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_4MA),  /* WLAN IRQ */
+#endif
+};
+
+static int wifi_cd = 0;           /* WIFI virtual 'card detect' status */
+//static struct vreg *vreg_wifi_osc;      /* WIFI 32khz oscilator */
+
+// dh0421.hwang for wifi
+static unsigned int wifi_status(struct device *dev)
+{
+	return wifi_cd;			// wifi 'card detect' status return
+}
+
+static void (*wifi_status_cb)(int card_present, void *dev_id);
+
+static void *wifi_status_cb_devid;
+
+static struct sdio_embedded_func wifi_func[] = {
+	{SDIO_CLASS_WLAN, 512},
+	{SDIO_CLASS_WLAN, 512},
+};
+
+static struct embedded_sdio_data wifi_emb_data = {
+	.cis    = {
+		.vendor         = 0x02d0,
+		.device         = 0x4325,
+		.blksize        = 512,
+		/*.max_dtr      = 24000000,  Max of chip - no worky on Trout */
+		.max_dtr        =   48000000,
+	},
+	.cccr   = {
+		.multi_block    = 1,
+		.low_speed      = 1,
+		.wide_bus       = 1,
+		.high_power     = 1,
+		.high_speed     = 1,
+	},
+	.funcs  = &wifi_func,
+	.num_funcs = 2,
+};
+
+static int wifi_status_register(void (*callback)(int card_present, void *dev_id), void *dev_id)
+{
+//	printk("%s:%d is called.....\n", __func__, __LINE__);
+	if(wifi_status_cb)
+		return -EAGAIN;
+	wifi_status_cb = callback;
+	wifi_status_cb_devid = dev_id;
+	return 0;
+}
+
+static struct mmc_platform_data wifi_data = {
+	.ocr_mask	= MMC_VDD_28_29,
+	.status		= wifi_status,
+	.register_status_notify	= wifi_status_register,
+	.embedded_sdio	= &wifi_emb_data,
+	.translate_vdd	= msm_wifi_setup_power,
+};
+
+int galaxy_wifi_set_carddetect(int val)
+{
+	wifi_cd = val;
+	if(wifi_status_cb)
+	{
+		wifi_status_cb(val, wifi_status_cb_devid);
+	}
+	else
+	{
+		printk("%s: Nobody to notify\n", __func__);
+	}
+  return 0;
+}
+EXPORT_SYMBOL(galaxy_wifi_set_carddetect);
+
+static int wifi_power_state;
+
+
+#define BCM4325_BT 0
+#define BCM4325_WLAN 1
+int galaxy_wifi_card_power(int on)
+{
+	printk("%s: %d\n", __func__, on);
+    
+    if(on) {
+		config_gpio_table(wifi_on_gpio_table, ARRAY_SIZE(wifi_on_gpio_table));
+		bcm4325_set_core_power(BCM4325_WLAN, 1);  /* dgahn.bcm_mutex */
+    }
+    else
+    {
+		config_gpio_table(wifi_off_gpio_table, ARRAY_SIZE(wifi_off_gpio_table));
+		bcm4325_set_core_power(BCM4325_WLAN, 0);  /* dgahn.bcm_mutex */
+    }
+    
+    return 0;
+}
+EXPORT_SYMBOL(galaxy_wifi_card_power);
+
+int wifi_power(int on)
+{
+
+	printk("%s: %d\n", __func__, on);
+
+	/* Power on the BCM4325 */
+    galaxy_wifi_card_power(on);
+
+    /* Do the mmc_rescan */
+    galaxy_wifi_set_carddetect(on);
+
+	return 0;
+}
+EXPORT_SYMBOL(wifi_power);
+
+int galaxy_wifi_reset(int on) {
+  // nothing
+  return 0;
+}
+
 void __init galaxy_init_mmc(void)
 {
-	vreg_mmc = vreg_get(NULL, "mmc");
+	//vreg_mmc = vreg_get(NULL, "mmc");
 	if (IS_ERR(vreg_mmc)) {
 		//printk(KERN_ERR "%s: vreg get failed ($ld)\n", __func__, PTR_ERR(vreg_mmc));
 		return;
@@ -241,11 +374,11 @@ void __init galaxy_init_mmc(void)
 	}
 
 	/* wake up the system when inserting or removing SD card */
-	set_irq_wake(MSM_GPIO_TO_INT(GPIO_FLASH_DETECT), 1);
+//	set_irq_wake(MSM_GPIO_TO_INT(GPIO_FLASH_DETECT), 1);
 
-	sdcc_gpio_init();
+//	sdcc_gpio_init();
 
 	msm_add_sdcc(3, &movinand_sdcc_data, 0, 0);
-	msm_add_sdcc(1, &galaxy_sdcc_data, 0, 0);
+	//msm_add_sdcc(1, &galaxy_sdcc_data, 0, 0);
 	//msm_add_sdcc(2, &wifi_data, 0, 0);
 }

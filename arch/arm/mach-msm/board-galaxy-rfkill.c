@@ -81,6 +81,7 @@ int bcm4325_set_core_power(unsigned bcm_core, unsigned pow_on)
 
 	return 0;
 }
+EXPORT_SYMBOL(bcm4325_set_core_power);
 
 /* /sys/class/rfkill/rfkill0/state */
 static int bluetooth_set_power(void *data, bool blocked)
