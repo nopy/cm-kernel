@@ -305,7 +305,11 @@ void mmc_set_data_timeout(struct mmc_data *data, const struct mmc_card *card)
 			 * The limit is really 250 ms, but that is
 			 * insufficient for some crappy cards.
 			 */
+#ifdef CONFIG_MACH_GALAXY
+			limit_us = 10000000;
+#else
 			limit_us = 300000;
+#endif
 		else
 			limit_us = 100000;
 
@@ -1192,7 +1196,11 @@ out:
 void mmc_start_host(struct mmc_host *host)
 {
 	mmc_power_off(host);
+#ifdef CONFIG_MACH_GALAXY
+	mmc_detect_change(host, HZ);
+#else
 	mmc_detect_change(host, 0);
+#endif
 }
 
 void mmc_stop_host(struct mmc_host *host)

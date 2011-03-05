@@ -514,6 +514,14 @@ static struct mmc_blk_data *mmc_blk_alloc(struct mmc_card *card)
 	struct mmc_blk_data *md;
 	int devidx, ret;
 
+#ifdef CONFIG_MACH_GALAXY
+	if ( card && !(strcmp(mmc_card_id(card), "mmc0:0001")) && !(strcmp(mmc_card_name(card), "XME0DM"))) {
+		devidx = 0;
+	} else if ( card && !(strncmp(mmc_card_id(card), "mmc1", 4))) {
+		devidx = 1;
+	}
+	else
+#endif
 	devidx = find_first_zero_bit(dev_use, MMC_NUM_MINORS);
 	if (devidx >= MMC_NUM_MINORS)
 		return ERR_PTR(-ENOSPC);
@@ -548,6 +556,11 @@ static struct mmc_blk_data *mmc_blk_alloc(struct mmc_card *card)
 	md->queue.issue_fn = mmc_blk_issue_rq;
 	md->queue.data = md;
 
+#ifdef CONFIG_MACH_GALAXY
+	if(card && card->type == MMC_TYPE_MMC)
+		md->disk->major = MMC_BLOCK_MAJOR_MOVINAND;
+	else
+#endif
 	md->disk->major	= MMC_BLOCK_MAJOR;
 	md->disk->first_minor = devidx << MMC_SHIFT;
 	md->disk->fops = &mmc_bdops;

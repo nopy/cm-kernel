@@ -151,9 +151,13 @@
 
 #define USB_ACM_MAJOR		166
 #define USB_ACM_AUX_MAJOR	167
-#define USB_CHAR_MAJOR		180
 
 #define MMC_BLOCK_MAJOR		179
+#ifdef CONFIG_MACH_GALAXY
+#define MMC_BLOCK_MAJOR_MOVINAND 180
+#else
+#define USB_CHAR_MAJOR		180
+#endif
 
 #define VXVM_MAJOR		199	/* VERITAS volume i/o driver    */
 #define VXSPEC_MAJOR		200	/* VERITAS volume config driver */
