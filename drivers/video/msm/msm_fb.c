@@ -40,6 +40,8 @@
 #include <linux/android_pmem.h>
 #include <linux/leds.h>
 #include <linux/pm_runtime.h>
+#include <linux/msm_hw3d.h>
+
 
 #ifndef CONFIG_MSM_BUS_SCALING
 #include <linux/pm_qos_params.h>

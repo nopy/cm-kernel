@@ -34,6 +34,7 @@
 #include <asm/mach-types.h>
 #include <linux/semaphore.h>
 #include <linux/msm_kgsl.h>
+#include <linux/msm_hw3d.h>
 
 #ifndef CONFIG_MSM_BUS_SCALING
 #include <linux/pm_qos_params.h>
@@ -41,6 +42,8 @@
 
 #include "mdp.h"
 #include "msm_fb.h"
+
+//#define DEBUG
 
 #define MDP_IS_IMGTYPE_BAD(x) (((x) >= MDP_IMGTYPE_LIMIT) && \
 				(((x) < MDP_IMGTYPE2_START) || \
@@ -1176,17 +1179,29 @@ static int mdp_ppp_verify_req(struct mdp_blit_req *req)
 	if ((req->src.width == 0) || (req->src.height == 0) ||
 	    (req->src_rect.w == 0) || (req->src_rect.h == 0) ||
 	    (req->dst.width == 0) || (req->dst.height == 0) ||
-	    (req->dst_rect.w == 0) || (req->dst_rect.h == 0))
+	    (req->dst_rect.w == 0) || (req->dst_rect.h == 0)) {
+		#ifdef DEBUG
+			printk(KERN_ERR "mdp_ppp_verify_req: src/dst = 0!\n");
+		#endif
 
 		return -1;
+  }
 
 	if (((req->src_rect.x + req->src_rect.w) > req->src.width) ||
-	    ((req->src_rect.y + req->src_rect.h) > req->src.height))
+	    ((req->src_rect.y + req->src_rect.h) > req->src.height)) {
+		#ifdef DEBUG
+			printk(KERN_ERR "mdp_ppp_verify_req: src x+w>width | src y+h>height !\n");
+		#endif
 		return -1;
+	}
 
 	if (((req->dst_rect.x + req->dst_rect.w) > req->dst.width) ||
-	    ((req->dst_rect.y + req->dst_rect.h) > req->dst.height))
+	    ((req->dst_rect.y + req->dst_rect.h) > req->dst.height)) {
+		#ifdef DEBUG
+			printk(KERN_ERR "mdp_ppp_verify_req: dst x+w>width | dst y+h>height !\n");
+		#endif
 		return -1;
+	}
 
 	/*
 	 * scaling range check
@@ -1225,14 +1240,22 @@ static int mdp_ppp_verify_req(struct mdp_blit_req *req)
 	if (((MDP_SCALE_Q_FACTOR * dst_width) / src_width >
 	     MDP_MAX_X_SCALE_FACTOR)
 	    || ((MDP_SCALE_Q_FACTOR * dst_width) / src_width <
-		MDP_MIN_X_SCALE_FACTOR))
+		MDP_MIN_X_SCALE_FACTOR)) {
+		#ifdef DEBUG
+			printk(KERN_ERR "mdp_ppp_verify_req: width - MDP_SCALE_Q_FACTOR > MDP_SCALE_Q_FACTOR | MDP_SCALE_Q_FACTOR <  MDP_MIN_X_SCALE_FACTOR !\n");
+		#endif
 		return -1;
+	}
 
 	if (((MDP_SCALE_Q_FACTOR * dst_height) / src_height >
 	     MDP_MAX_Y_SCALE_FACTOR)
 	    || ((MDP_SCALE_Q_FACTOR * dst_height) / src_height <
-		MDP_MIN_Y_SCALE_FACTOR))
+		MDP_MIN_Y_SCALE_FACTOR)) {
+		#ifdef DEBUG
+			printk(KERN_ERR "mdp_ppp_verify_req: height - MDP_SCALE_Q_FACTOR > MDP_SCALE_Q_FACTOR | MDP_SCALE_Q_FACTOR <  MDP_MIN_X_SCALE_FACTOR !\n");
+		#endif
 		return -1;
+	}
 
 	return 0;
 }
@@ -1256,18 +1279,37 @@ int get_img(struct mdp_img *img, struct fb_info *info, unsigned long *start,
 #endif
 
 #ifdef CONFIG_ANDROID_PMEM
-	if (!get_pmem_file(img->memory_id, start, &vstart, len, pp_file))
-		return 0;
+  if (!get_pmem_file(img->memory_id, start, &vstart, len, pp_file)) {
+    #ifdef DEBUG
+      printk(KERN_ERR "mdp_ppp get_img: using fb file !\n");
+    #endif
+    return 0;
+  }
+  else if (!get_msm_hw3d_file(img->memory_id, &img->offset, start, len,
+                    pp_file)) {
+    #ifdef DEBUG
+      printk(KERN_ERR "mdp_ppp get_img: using hw3d file !\n");
+    #endif
+    return 0;
+  }
 #endif
 	file = fget_light(img->memory_id, &put_needed);
-	if (file == NULL)
+	if (file == NULL) {
+		#ifdef DEBUG
+			printk(KERN_ERR "mdp_ppp get_img: file = NULL !\n");
+		#endif
 		return -1;
+	}
 
 	if (MAJOR(file->f_dentry->d_inode->i_rdev) == FB_MAJOR) {
 		*start = info->fix.smem_start;
 		*len = info->fix.smem_len;
 		*pp_file = file;
 	} else {
+		#ifdef DEBUG
+			printk(KERN_ERR "mdp_ppp get_img: MAJOR = %i, FB_MAJOR = %i\n", MAJOR(file->f_dentry->d_inode->i_rdev), FB_MAJOR);
+			printk(KERN_ERR "mdp_ppp get_img: MAJOR <> FB_MAJOR !\n");
+		#endif
 		ret = -1;
 		fput_light(file, put_needed);
 	}
@@ -1278,8 +1320,13 @@ int get_img(struct mdp_img *img, struct fb_info *info, unsigned long *start,
 void put_img(struct file *p_src_file)
 {
 #ifdef CONFIG_ANDROID_PMEM
-	if (p_src_file)
-		put_pmem_file(p_src_file);
+	if (p_src_file) {
+		if (is_msm_hw3d_file(p_src_file)) {
+			put_msm_hw3d_file(p_src_file);
+		} else {
+			put_pmem_file(p_src_file);
+		}
+	}
 #endif
 }
 
@@ -1379,7 +1426,7 @@ int mdp_ppp_blit(struct fb_info *info, struct mdp_blit_req *req)
 	if (req->flags & MDP_DITHER)
 		iBuf.mdpImg.mdpOp |= MDPOP_DITHER;
 
-	if (req->flags & MDP_BLEND_FG_PREMULT) {
+/*	if (req->flags & MDP_BLEND_FG_PREMULT) {
 #ifdef CONFIG_FB_MSM_MDP31
 		iBuf.mdpImg.mdpOp |= MDPOP_FG_PM_ALPHA;
 #else
@@ -1387,12 +1434,15 @@ int mdp_ppp_blit(struct fb_info *info, struct mdp_blit_req *req)
 		put_img(p_dst_file);
 		return -EINVAL;
 #endif
-	}
+	}*/
 
 	if (req->flags & MDP_DEINTERLACE) {
 #ifdef CONFIG_FB_MSM_MDP31
 		if ((req->src.format != MDP_Y_CBCR_H2V2) &&
 			(req->src.format != MDP_Y_CRCB_H2V2)) {
+		#ifdef DEBUG
+			printk(KERN_ERR "mdp_ppp_blit : eq->flags & MDP_DEINTERLACE !\n");
+		#endif
 #endif
 			put_img(p_src_file);
 			put_img(p_dst_file);
@@ -1442,6 +1492,9 @@ int mdp_ppp_blit(struct fb_info *info, struct mdp_blit_req *req)
 		iBuf.mdpImg.mdpOp |= MDPOP_ASCALE | MDPOP_SHARPENING;
 		iBuf.mdpImg.sp_value = req->sharpening_strength & 0xff;
 #else
+		#ifdef DEBUG
+			printk(KERN_ERR "mdp_ppp_blit : req->flags & MDP_SHARPENING !\n");
+		#endif
 		put_img(p_src_file);
 		put_img(p_dst_file);
 		return -EINVAL;
