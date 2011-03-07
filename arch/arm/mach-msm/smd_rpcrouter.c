@@ -45,15 +45,15 @@
 #include <mach/msm_smd.h>
 #include "smd_rpcrouter.h"
 
-#define TRACE_R2R_MSG 1
-#define TRACE_R2R_RAW 1
-#define TRACE_RPC_MSG 1
-#define TRACE_NOTIFY_MSG 1
+#define TRACE_R2R_MSG 0
+#define TRACE_R2R_RAW 0
+#define TRACE_RPC_MSG 0
+#define TRACE_NOTIFY_MSG 0
 
-#define MSM_RPCROUTER_DEBUG 1
-#define MSM_RPCROUTER_DEBUG_PKT 1
-#define MSM_RPCROUTER_R2R_DEBUG 1
-#define DUMP_ALL_RECEIVED_HEADERS 1
+#define MSM_RPCROUTER_DEBUG 0
+#define MSM_RPCROUTER_DEBUG_PKT 0
+#define MSM_RPCROUTER_R2R_DEBUG 0
+#define DUMP_ALL_RECEIVED_HEADERS 0
 
 #define DIAG(x...) printk("[RR] ERROR " x)
 
@@ -1193,6 +1193,7 @@ struct msm_rpc_endpoint *msm_rpc_connect(uint32_t prog, uint32_t vers, unsigned 
 	struct msm_rpc_endpoint *ept;
 	struct rr_server *server;
 
+  printk("msm_rpc_connect: %08x:%08x\n", prog, vers);
 #if !defined(CONFIG_MSM_LEGACY_7X00A_AMSS)
 	if (!(vers & RPC_VERSION_MODE_MASK)) {
 		uint32_t found_vers;
@@ -1207,6 +1208,8 @@ struct msm_rpc_endpoint *msm_rpc_connect(uint32_t prog, uint32_t vers, unsigned 
 #endif
 
 	server = rpcrouter_lookup_server(prog, vers);
+  if (!server)
+    printk("msm_rpc_connect: failed to connect to %08x:%08x\n", prog, vers);
 	if (!server)
 		return ERR_PTR(-EHOSTUNREACH);
 

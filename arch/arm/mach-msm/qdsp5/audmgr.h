@@ -142,6 +142,11 @@ struct rpc_audmgr_enable_client_args {
 #define AUDMGR_GET_TX_SAMPLE_RATE		9
 #define AUDMGR_SET_DEVICE_MODE			10
 
+#ifdef CONF_MACH_GALAXY
+#define AUDMGR_PROG_VERS "rs30000013:00020000"
+#define AUDMGR_PROG 0x30000013
+#define AUDMGR_VERS 0x00020001
+#else
 #if CONFIG_MSM_AMSS_VERSION < 6220
 #define AUDMGR_PROG_VERS "rs30000013:46255756"
 #define AUDMGR_PROG 0x30000013
@@ -150,6 +155,7 @@ struct rpc_audmgr_enable_client_args {
 #define AUDMGR_PROG_VERS "rs30000013:e94e8f0c"
 #define AUDMGR_PROG 0x30000013
 #define AUDMGR_VERS 0xe94e8f0c
+#endif
 #endif
 
 struct rpc_audmgr_cb_func_ptr {

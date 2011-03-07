@@ -42,6 +42,11 @@
 
 #include "evlog.h"
 
+#ifdef CONFIG_MACH_GALAXY
+#include <linux/i2c/max9877.h>
+int audio_enabled = 0;
+#endif
+
 #define LOG_AUDIO_EVENTS 1
 #define LOG_AUDIO_FAULTS 0
 
@@ -251,7 +256,12 @@ static int audio_enable(struct audio *audio)
 		audio_allow_sleep(audio);
 		return rc;
 	}
-
+#ifdef CONFIG_MACH_GALAXY
+	if(!audio_enabled) {
+		audio_enabled = 1; //UNIVERSAL_SURF
+	    max9877_resume();
+	}
+#endif
 	if (audpp_enable(-1, audio_dsp_event, audio)) {
 		pr_err("audio: audpp_enable() failed\n");
 		audmgr_disable(&audio->audmgr);
@@ -269,6 +279,10 @@ static int audio_disable(struct audio *audio)
 {
 	pr_info("audio_disable()\n");
 	if (audio->enabled) {
+#ifdef CONFIG_MACH_GALAXY
+		audio_enabled = 0;
+		max9877_suspend();
+#endif
 		audio->enabled = 0;
 		audio_dsp_out_enable(audio, 0);
 

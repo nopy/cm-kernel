@@ -404,7 +404,7 @@ int __msm_adsp_write(struct msm_adsp_module *module, unsigned dsp_queue_addr,
 		       module->name);
 		return -ENODEV;
 	}
-	if (dsp_queue_addr > QDSP_MAX_NUM_QUEUES) {
+	if (dsp_queue_addr > QDSP_QUEUE_MAX) {
 		spin_unlock_irqrestore(&adsp_cmd_lock, flags);
 		pr_info("Invalid Queue Index: %d\n", dsp_queue_addr);
 		return -ENXIO;
