@@ -1065,6 +1065,7 @@ void *smem_alloc(unsigned id, unsigned size)
     DBG(KERN_INFO "%s: enter\n", __func__);
 	return smem_find(id, size);
 }
+EXPORT_SYMBOL(smem_alloc);
 
 void *smem_item(unsigned id, unsigned *size)
 {

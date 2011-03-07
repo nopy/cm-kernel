@@ -30,6 +30,7 @@
 #include <linux/tty.h>
 #include <linux/tty_driver.h>
 #include <linux/tty_flip.h>
+#include <linux/tty_ldisc.h>
 #include <linux/irq.h>
 
 #ifdef _ENABLE_ERROR_DEVICE
@@ -115,6 +116,8 @@
 //hsil 
 //#define writel(b,addr) (*(volatile u32 *) (addr) = (b))
 #define MSM_A2M_INT(n) (MSM_CSR_BASE + 0x400 + (n) * 4)
+
+extern void smsm_reset_modem(unsigned mode);
 
 //hsil
 static volatile unsigned char *SmemBase;
@@ -1339,8 +1342,8 @@ static void res_ack_tasklet_handler(unsigned long data)
 		struct tty_struct *tty = device->serial.tty;
 
 		if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-				tty->ldisc.ops->write_wakeup) {
-			(tty->ldisc.ops->write_wakeup)(tty);
+				tty->ldisc->ops->write_wakeup) {
+			(tty->ldisc->ops->write_wakeup)(tty);
 		}
 
 		wake_up_interruptible(&tty->write_wait);
