@@ -30,12 +30,15 @@
 #include "board-galaxy.h"
 #include "devices.h"
 
-#define _DEBUG 1
+#define _DEBUG 0
 #ifdef _DEBUG
-#define dprintk(s, args...) printk("[OLED] %s:%d - " s, __func__, __LINE__,  ##args)
+#define dprintk(s, args...) printk("galaxy_panel: %s:%d - " s, __func__, __LINE__,  ##args)
 #else
 #define dprintk(s, args...)
 #endif  /* _DEBUG */
+
+// max level of backlight send by android
+#define MAX_BACKLIGHT_BRIGHTNESS 255
 
 #define SMD_AUTO_POWER_CMD
 #define SMD_VYSNC_50HZ_CMD
@@ -130,17 +133,13 @@
 #define HVGA_XRES	320
 #define HVGA_YRES	480
 
-#define CAPELA_DEFAULT_BACKLIGHT_BRIGHTNESS 255
+#define GALAXY_DEFAULT_BACKLIGHT_BRIGHTNESS 255
 
 struct mddi_table {
 	uint32_t reg;
 	unsigned value[4];
 	uint32_t val_len;
 };
-
-int bridge_on = 1;
-//EXPORT_SYMBOL(bridge_on);
-int TestBridgeOn = 1;
 
 static struct mddi_table toshiba_mddi_init_table[] = 
 {
@@ -1205,13 +1204,7 @@ static struct mddi_table smd_oled_gamma_300cd_table[] =
 	{ SSITX,	{0x00014129},	1 	},
 };	
 
-//static uint32 mddi_toshiba_curr_vpos;
-//static boolean mddi_toshiba_monitor_refresh_value = FALSE;
-//static boolean mddi_toshiba_report_refresh_measurements = FALSE;
-//
-//boolean mddi_toshiba_61Hz_refresh = TRUE;
-
-#if 1  // calculate refresh rate  <hg2395.kim>
+// calculate refresh rate  <hg2395.kim>
 /* Timing variables for tracking vsync */
 /* dot_clock = 13.332MHz
  * horizontal count = 448
@@ -1222,45 +1215,16 @@ static struct mddi_table smd_oled_gamma_300cd_table[] =
 //static uint32 mddi_toshiba_rows_per_second = 29758;  /* 13332000/448 */
 //static uint32 mddi_toshiba_usecs_per_refresh = 16667; /* (448*496) / 13332000 */
 //static uint32 mddi_toshiba_rows_per_refresh = 496;
-#else
-/* Modifications to timing to increase refresh rate to > 60Hz.
- *   20MHz dot clock.
- *   646 total rows.
- *   506 total columns.
- *   refresh rate = 61.19Hz
- */
-static uint32 mddi_toshiba_rows_per_second = 39526;
-static uint32 mddi_toshiba_usecs_per_refresh = 16344;
-static uint32 mddi_toshiba_rows_per_refresh = 646;
 
-#endif
-
-//extern boolean mddi_vsync_detect_enabled;
-
-static int low_battery_flag=0;
-
-//static msm_fb_vsync_handler_type mddi_toshiba_vsync_handler = NULL;
-//static void *mddi_toshiba_vsync_handler_arg;
-//static uint16 mddi_toshiba_vsync_attempts;
-
-//static void capela_set_backlight_level(uint8_t level);
-
-// hsil
-static int capela_backlight_off;
-static int capela_backlight_brightness = CAPELA_DEFAULT_BACKLIGHT_BRIGHTNESS;
-static int capela_backlight_last_level = 4;
-static int capela_backlight_is_dimming = 0;
-static DEFINE_MUTEX(capela_backlight_lock);
-static DEFINE_MUTEX(capela_lcd_on_lock);
-static DEFINE_MUTEX(capela_lcd_off_lock);
+static int galaxy_backlight_off = 1;
+static int galaxy_backlight_brightness = GALAXY_DEFAULT_BACKLIGHT_BRIGHTNESS;
+static int galaxy_backlight_last_level = 4;
+struct msm_mddi_client_data *g_client_data = NULL;
+static DEFINE_MUTEX(galaxy_backlight_lock);
 
 #define GPIOSEL_VWAKEINT (1U << 0)
 #define INTMASK_VWAKEOUT (1U << 0)
 	    
-#define write_client_reg_multi(__X, __Y, __Z) {\
-	mddi_queue_register_multi_write(__X, __Y, __Z, TRUE, 0);\
-}
-
 static void galaxy_process_mddi_table(
 				struct msm_mddi_client_data *client_data,
 				struct mddi_table *table,
@@ -1286,6 +1250,7 @@ static void galaxy_process_mddi_table(
 				uint32_t value = table[i].value[0];
 				client_data->remote_write(client_data, value, reg);
 			} else {
+				printk("galaxy_process_mddi_table: multiple write on reg(%x)\n", reg);
 				uint8_t* value = (uint8_t*)table[i].value;
 				client_data->remote_write_vals(client_data, value, reg, val_len);
 			}
@@ -1312,7 +1277,7 @@ static void smd_hvga_oled_init_wakeup(struct msm_mddi_client_data *client_data)
 
 static void smd_hvga_oled_display_on_wakeup(struct msm_mddi_client_data *client_data)
 {
-    printk("[LCD] smd_hvga_oled_display_on_wakeup\n");
+	printk("[LCD] smd_hvga_oled_display_on_wakeup\n");
 	galaxy_process_mddi_table(client_data, smd_oled_wakeup_display_on_table, ARRAY_SIZE(smd_oled_wakeup_display_on_table));
 }
 
@@ -1345,158 +1310,151 @@ static void toshiba_bridge_shutdown(struct msm_mddi_client_data *client_data)
 	galaxy_process_mddi_table(client_data, mddi_toshiba_shutdown_table, ARRAY_SIZE(mddi_toshiba_shutdown_table));
 }
 
-//static void mddi_smd_hvga_lcd_shutdown(struct platform_device *pdev)
-//
-//{
-//	struct msm_fb_data_type *mfd;
-//
-//	printk("[LCD] mddi_smd_hvga_lcd_shutdown\n");
-//
-//	smd_hvga_oled_shutdown();
-//	toshiba_bridge_shutdown();
-//}
-
-static void galaxy_set_backlight_level(struct msm_mddi_client_data *client_data, uint8_t level)
+static void galaxy_set_backlight_level(uint8_t level)
 {
 	unsigned int brightness_level;
+	struct msm_mddi_client_data *client_data = g_client_data;
 
-	capela_backlight_is_dimming =0;
+	if (galaxy_backlight_off) {
+		pr_warn("galaxy_panel: ignoring backlight set, panel is off !\n");
+		return;
+	}
 
-	if (level == 20)
-		brightness_level = 0;
-	else if (level == 255)
-		brightness_level = 22;
-	else
-		brightness_level = (level - 30) / 11 + 1;
+	if (!client_data) {
+		pr_warn("galaxy_panel: ignoring backlight set, no client data !\n");
+		return;
+	}
 
-	//    printk("[KHG] capela_brightness_set..level= %d, brightness_level=%d\n",level,brightness_level);
+	brightness_level = (2 * level * 22 + MAX_BACKLIGHT_BRIGHTNESS)
+				/(2 * MAX_BACKLIGHT_BRIGHTNESS);
+
+	dprintk("setting brightness level to %d\n", brightness_level);
 	switch (brightness_level)
 	{
 	case 0:  // Dimming Not Saved
 		galaxy_process_mddi_table(client_data, smd_oled_gamma_40cd_table, ARRAY_SIZE(smd_oled_gamma_40cd_table));
-		capela_backlight_is_dimming = 1;
 		break;
 	case 1:
 		galaxy_process_mddi_table(client_data, smd_oled_gamma_95cd_table, ARRAY_SIZE(smd_oled_gamma_95cd_table));
-		capela_backlight_last_level = brightness_level;
+		galaxy_backlight_last_level = brightness_level;
 		break;
 	case 2:
 		galaxy_process_mddi_table(client_data, smd_oled_gamma_100cd_table, ARRAY_SIZE(smd_oled_gamma_100cd_table));
-		capela_backlight_last_level = brightness_level;
+		galaxy_backlight_last_level = brightness_level;
 		break;
 	case 3:
 		galaxy_process_mddi_table(client_data, smd_oled_gamma_110cd_table, ARRAY_SIZE(smd_oled_gamma_110cd_table));
-		capela_backlight_last_level = brightness_level;
+		galaxy_backlight_last_level = brightness_level;
 		break;
 	case 4:
 		galaxy_process_mddi_table(client_data, smd_oled_gamma_120cd_table, ARRAY_SIZE(smd_oled_gamma_120cd_table));
-		capela_backlight_last_level = brightness_level;
+		galaxy_backlight_last_level = brightness_level;
 		break;
 	case 5:
 		galaxy_process_mddi_table(client_data, smd_oled_gamma_130cd_table, ARRAY_SIZE(smd_oled_gamma_130cd_table));
-		capela_backlight_last_level = brightness_level;
+		galaxy_backlight_last_level = brightness_level;
 		break;
 	case 6:
 		galaxy_process_mddi_table(client_data, smd_oled_gamma_140cd_table, ARRAY_SIZE(smd_oled_gamma_140cd_table));
-		capela_backlight_last_level = brightness_level;
+		galaxy_backlight_last_level = brightness_level;
 		break;
 	case 7:
 		galaxy_process_mddi_table(client_data, smd_oled_gamma_150cd_table, ARRAY_SIZE(smd_oled_gamma_150cd_table));
-		capela_backlight_last_level = brightness_level;
+		galaxy_backlight_last_level = brightness_level;
 		break;
 	case 8:
 		galaxy_process_mddi_table(client_data, smd_oled_gamma_160cd_table, ARRAY_SIZE(smd_oled_gamma_160cd_table));
-		capela_backlight_last_level = brightness_level;
+		galaxy_backlight_last_level = brightness_level;
 		break;
 	case 9:
 		galaxy_process_mddi_table(client_data, smd_oled_gamma_170cd_table, ARRAY_SIZE(smd_oled_gamma_170cd_table));
-		capela_backlight_last_level = brightness_level;
+		galaxy_backlight_last_level = brightness_level;
 		break;
 	case 10:
 		galaxy_process_mddi_table(client_data, smd_oled_gamma_180cd_table, ARRAY_SIZE(smd_oled_gamma_180cd_table));
-		capela_backlight_last_level = brightness_level;
+		galaxy_backlight_last_level = brightness_level;
 		break;
 	case 11:
 		galaxy_process_mddi_table(client_data, smd_oled_gamma_190cd_table, ARRAY_SIZE(smd_oled_gamma_190cd_table));
-		capela_backlight_last_level = brightness_level;
+		galaxy_backlight_last_level = brightness_level;
 		break;
 	case 12:
 		galaxy_process_mddi_table(client_data, smd_oled_gamma_200cd_table, ARRAY_SIZE(smd_oled_gamma_200cd_table));
-		capela_backlight_last_level = brightness_level;
+		galaxy_backlight_last_level = brightness_level;
 		break;
 	case 13:
 		galaxy_process_mddi_table(client_data, smd_oled_gamma_210cd_table, ARRAY_SIZE(smd_oled_gamma_210cd_table));
-		capela_backlight_last_level = brightness_level;
+		galaxy_backlight_last_level = brightness_level;
 		break;
 	case 14:
 		galaxy_process_mddi_table(client_data, smd_oled_gamma_220cd_table, ARRAY_SIZE(smd_oled_gamma_220cd_table));
-		capela_backlight_last_level = brightness_level;
+		galaxy_backlight_last_level = brightness_level;
 		break;
 	case 15:
 		galaxy_process_mddi_table(client_data, smd_oled_gamma_230cd_table, ARRAY_SIZE(smd_oled_gamma_230cd_table));
-		capela_backlight_last_level = brightness_level;
+		galaxy_backlight_last_level = brightness_level;
 		break;
 	case 16:
 		galaxy_process_mddi_table(client_data, smd_oled_gamma_240cd_table, ARRAY_SIZE(smd_oled_gamma_240cd_table));
-		capela_backlight_last_level = brightness_level;
+		galaxy_backlight_last_level = brightness_level;
 		break;
 	case 17:
 		galaxy_process_mddi_table(client_data, smd_oled_gamma_250cd_table, ARRAY_SIZE(smd_oled_gamma_250cd_table));
-		capela_backlight_last_level = brightness_level;
+		galaxy_backlight_last_level = brightness_level;
 		break;
 	case 18:
 		galaxy_process_mddi_table(client_data, smd_oled_gamma_260cd_table, ARRAY_SIZE(smd_oled_gamma_260cd_table));
-		capela_backlight_last_level = brightness_level;
+		galaxy_backlight_last_level = brightness_level;
 		break;
 	case 19:
 		galaxy_process_mddi_table(client_data, smd_oled_gamma_270cd_table, ARRAY_SIZE(smd_oled_gamma_270cd_table));
-		capela_backlight_last_level = brightness_level;
+		galaxy_backlight_last_level = brightness_level;
 		break;
 	case 20:
 		galaxy_process_mddi_table(client_data, smd_oled_gamma_280cd_table, ARRAY_SIZE(smd_oled_gamma_280cd_table));
-		capela_backlight_last_level = brightness_level;
+		galaxy_backlight_last_level = brightness_level;
 		break;
 	case 21:
 		galaxy_process_mddi_table(client_data, smd_oled_gamma_290cd_table, ARRAY_SIZE(smd_oled_gamma_290cd_table));
-		capela_backlight_last_level = brightness_level;
+		galaxy_backlight_last_level = brightness_level;
 		break;
 	case 22:
 		galaxy_process_mddi_table(client_data, smd_oled_gamma_300cd_table, ARRAY_SIZE(smd_oled_gamma_300cd_table));
-		capela_backlight_last_level = brightness_level;
+		galaxy_backlight_last_level = brightness_level;
 		break;
 	default:
 		break;
 	}
 }
 
-static void capela_brightness_set(struct led_classdev *led_cdev, enum led_brightness value)
+static int galaxy_brightness_set(struct led_classdev *led_cdev, enum led_brightness value)
 {
-//	printk("[KHG] capela_brightness_set,bridge_on=%d\n",bridge_on);
-	if(bridge_on)
+	dprintk("%s: value %d\n", __func__, value);
+	if (value>=0  && value<=MAX_BACKLIGHT_BRIGHTNESS)
 	{
-//		printk("[KHG] capela_brightness_set,val=%d\n",value);
-		mutex_lock(&capela_backlight_lock);
-		capela_backlight_brightness = value;
-//		if(capela_backlight_brightness)
-//			capela_set_backlight_level(capela_backlight_brightness);
-		mutex_unlock(&capela_backlight_lock);
-	}
+		mutex_lock(&galaxy_backlight_lock);
+		galaxy_backlight_brightness = value;
+		if (galaxy_backlight_brightness)
+			galaxy_set_backlight_level(galaxy_backlight_brightness);
+		mutex_unlock(&galaxy_backlight_lock);
+	} else
+		return -EINVAL;
 }
 
 static void galaxy_mddi_power_client(struct msm_mddi_client_data *client_data,
 				    int on)
 {
 	dprintk("%s(%d): entered\n", __func__, on);
-	dprintk(KERN_INFO "galaxy_mddi_power_client:%d\r\n", on);
+//	dprintk(KERN_INFO "galaxy_mddi_power_client:%d\r\n", on);
 	if (on) {
 		// Bridge Wake Up
-		toshiba_bridge_wakeup(client_data);
+		//toshiba_bridge_wakeup(client_data);
 		// OLED Wake Up
-		smd_hvga_oled_start_wakeup(client_data);
-		smd_hvga_oled_power_wakeup(client_data);
+		//smd_hvga_oled_start_wakeup(client_data);
+		//smd_hvga_oled_power_wakeup(client_data);
 	} else {
-		smd_hvga_oled_shutdown(client_data);
-		toshiba_bridge_shutdown(client_data);
+		//smd_hvga_oled_shutdown(client_data);
+		//toshiba_bridge_shutdown(client_data);
 	}
 }
 
@@ -1524,9 +1482,20 @@ static int galaxy_mddi_toshiba_client_init(
 	smd_hvga_oled_start_wakeup(client_data);
 	smd_hvga_oled_power_wakeup(client_data);
 	smd_hvga_oled_init_wakeup(client_data);
-	galaxy_set_backlight_level(client_data, capela_backlight_last_level);
+
+	// Restore backlight level
+	mutex_lock(&galaxy_backlight_lock);
+	g_client_data = client_data;
+	galaxy_backlight_off = 0;
+	galaxy_set_backlight_level(galaxy_backlight_brightness);
+	mutex_unlock(&galaxy_backlight_lock);
+	
 	smd_hvga_oled_display_on_wakeup(client_data);
-	//client_data->auto_hibernate(client_data, 1);
+
+	//client_data->remote_write(client_data, GPIOSEL_VWAKEINT, GPIOSEL);
+	//client_data->remote_write(client_data, INTMASK_VWAKEOUT, INTMASK);
+
+	client_data->auto_hibernate(client_data, 1);
 	return 0;
 }
 
@@ -1535,6 +1504,18 @@ static int galaxy_mddi_toshiba_client_uninit(
 			struct msm_mddi_client_data *client_data)
 {
 	dprintk("%s: entered\n", __func__);
+
+	client_data->auto_hibernate(client_data, 0);
+
+	smd_hvga_oled_sleep(client_data);
+	toshiba_bridge_sleep(client_data);
+
+	client_data->auto_hibernate(client_data, 1);
+	mutex_lock(&galaxy_backlight_lock);
+	//galaxy_set_backlight_level(0);
+	galaxy_backlight_off = 1;
+	mutex_unlock(&galaxy_backlight_lock);
+	g_client_data = NULL;
 
 	return 0;
 }
@@ -1546,21 +1527,6 @@ static int galaxy_mddi_panel_unblank(
 	int ret = 0;
 	dprintk("%s: entered\n", __func__);
 
-	galaxy_set_backlight_level(client_data, 0);
-	client_data->auto_hibernate(client_data, 0);
-	// FIXME: May not be required
-	galaxy_process_mddi_table(client_data, toshiba_mddi_init_table, ARRAY_SIZE(toshiba_mddi_init_table));
-	galaxy_process_mddi_table(client_data, smd_oled_init_table, ARRAY_SIZE(smd_oled_init_table));
-
-	mutex_lock(&capela_backlight_lock);
-	galaxy_set_backlight_level(client_data, capela_backlight_brightness);
-	capela_backlight_off = 0;
-	mutex_unlock(&capela_backlight_lock);
-
-	client_data->auto_hibernate(client_data, 1);
-	/* reenable vsync */
-	client_data->remote_write(client_data, GPIOSEL_VWAKEINT, GPIOSEL);
-	client_data->remote_write(client_data, INTMASK_VWAKEOUT, INTMASK);
 	return ret;
 }
 
@@ -1570,19 +1536,6 @@ static int galaxy_mddi_panel_blank(
 {
 	int ret = 0;
 	dprintk("%s: entered\n", __func__);
-
-	client_data->auto_hibernate(client_data, 0);
-
-	smd_hvga_oled_sleep(client_data);
-	toshiba_bridge_sleep(client_data);
-
-	client_data->auto_hibernate(client_data, 1);
-	mutex_lock(&capela_backlight_lock);
-	galaxy_set_backlight_level(client_data, 0);
-	capela_backlight_off = 1;
-	mutex_unlock(&capela_backlight_lock);
-	client_data->remote_write(client_data, 0, SYSCKENA);
-	client_data->remote_write(client_data, 1, DPSUS);
 
 	return ret;
 }
@@ -1594,8 +1547,8 @@ static struct platform_device galaxy_backlight =
 
 static struct led_classdev galaxy_backlight_led = {
 	.name           = "lcd-backlight",
-	.brightness = CAPELA_DEFAULT_BACKLIGHT_BRIGHTNESS,
-	.brightness_set = capela_brightness_set,
+	.brightness = GALAXY_DEFAULT_BACKLIGHT_BRIGHTNESS,
+	.brightness_set = galaxy_brightness_set,
 };
 
 static int __init galaxy_backlight_probe(struct platform_device *pdev)
@@ -1613,7 +1566,6 @@ static struct platform_driver galaxy_backlight_driver =
 {
 	.probe      = galaxy_backlight_probe,
 	.remove     = galaxy_backlight_remove,
-	//.shutdown   = mddi_smd_hvga_lcd_shutdown,
 	.driver     =
 	{
 		.name       = "galaxy-backlight",
@@ -1653,7 +1605,7 @@ static struct msm_mddi_platform_data mddi_pdata = {
 	.client_platform_data = {
 		{
 			.product_id = 0xd2638722,
-			.name = "mddi_c_simple",
+			.name = "mddi_c_d263_0000",
 			.id = 0,
 			.client_data = &toshiba_client_data,
 			.clk_rate = 0,
@@ -1661,56 +1613,11 @@ static struct msm_mddi_platform_data mddi_pdata = {
 	},
 };
 
-//N1
-//static struct msm_lcdc_panel_ops galaxy_lcdc_amoled_panel_ops = {
-//	.init		= samsung_oled_panel_init,
-//	.blank		= samsung_oled_panel_blank,
-//	.unblank	= samsung_oled_panel_unblank,
-//};
-
-//static struct msm_lcdc_timing galaxy_lcdc_amoled_timing = {
-//		.clk_rate		= 122880000,
-//		//.hsync_pulse_width	= 2,
-//		//.hsync_back_porch	= 20,
-//		//.hsync_front_porch	= 20,
-//		//.hsync_skew		= 0,
-//		.vsync_pulse_width	= 0,
-//		.vsync_back_porch	= 6,
-//		.vsync_front_porch	= 0,
-////		.vsync_act_low		= 1,
-////		.hsync_act_low		= 1,
-////		.den_act_low		= 0,
-//};
-//
-//static struct msm_fb_data galaxy_lcdc_fb_data = {
-//		.xres		= 320,
-//		.yres		= 480,
-//		.width		= 45,
-//		.height		= 67,
-//		.output_format	= MSM_MDP_OUT_IF_FMT_RGB565,
-//};
-
-//static struct msm_lcdc_platform_data galaxy_lcdc_amoled_platform_data = {
-////	.panel_ops	= &galaxy_lcdc_amoled_panel_ops,
-//	.timing		= &galaxy_lcdc_amoled_timing,
-//	.fb_id		= 0,
-//	.fb_data	= &galaxy_lcdc_fb_data,
-//	.fb_resource	= &resources_msm_fb[0],
-//};
-//
-//static struct platform_device galaxy_lcdc_amoled_device = {
-//	.name	= "msm_mdp_lcdc",
-//	.id	= -1,
-//	.dev	= {
-//		.platform_data = &galaxy_lcdc_amoled_platform_data,
-//	},
-//};
-
 int __init galaxy_init_panel(void) {
 	int rc = -1;
 
 	/* checking board as soon as possible */
-	printk("galaxy_init_panel:machine_is_galaxy=%d, machine_arch_type=%d, MACH_TYPE_SAPPHIRE=%d\r\n", machine_is_galaxy(), machine_arch_type, MACH_TYPE_GALAXY);
+	printk("galaxy_init_panel:machine_is_galaxy=%d, machine_arch_type=%d, MACH_TYPE_GALAXY=%d\r\n", machine_is_galaxy(), machine_arch_type, MACH_TYPE_GALAXY);
 	if (!machine_is_galaxy())
 		return 0;
 

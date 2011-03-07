@@ -37,7 +37,7 @@
 
 static struct wake_lock vbus_wake_lock;
 //extern void lightsensor_low_battery_flag_set (int );
-extern void lcd_low_battery_flag_set_for_lightsensor (int );
+//extern void lcd_low_battery_flag_set_for_lightsensor (int );
 
 
 #define TRACE_BATT 1
@@ -556,7 +556,9 @@ unsigned int battery_get_voltage(int vbatt_adc)
 	return batt_voltage;
 }
 
-extern bridge_on;
+//TODO:Fix this
+//extern bridge_on;
+int bridge_on = 1;
 int using_dev = 0;
 int battery_compensation_val(int vbatt_adc)
 {
@@ -926,7 +928,7 @@ int battery_status_update(u32 curr_level)
 		if( previous_low_battery_flag != low_battery_flag )
 		{
 			//lightsensor_low_battery_flag_set( low_battery_flag );
-			lcd_low_battery_flag_set_for_lightsensor( low_battery_flag );
+			//lcd_low_battery_flag_set_for_lightsensor( low_battery_flag );
 			previous_low_battery_flag = low_battery_flag;
 		}
 //============= end ===========================
