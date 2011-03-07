@@ -487,7 +487,7 @@ static struct resource resources_mddi1[] = {
 };
 
 struct platform_device msm_device_mddi0 = {
-	.name = "mddi",
+	.name = "msm_mddi",
 	.id = 0,
 	.num_resources = ARRAY_SIZE(resources_mddi0),
 	.resource = resources_mddi0,
@@ -521,7 +521,7 @@ static struct resource resources_mdp[] = {
 };
 
 struct platform_device msm_device_mdp = {
-	.name = "mdp",
+	.name = "msm_mdp",
 	.id = 0,
 	.num_resources = ARRAY_SIZE(resources_mdp),
 	.resource = resources_mdp,
@@ -561,7 +561,7 @@ struct clk msm_clocks_7x01a[] = {
 	CLK_PCOM("ebi1_clk",	EBI1_CLK,	NULL, CLK_MIN),
 	CLK_PCOM("ebi2_clk",	EBI2_CLK,	NULL, 0),
 	CLK_PCOM("ecodec_clk",	ECODEC_CLK,	NULL, 0),
-	CLK_PCOM("mddi_clk",	EMDH_CLK,	NULL, OFF),
+	CLK_PCOM("mddi_clk",	EMDH_CLK,	&msm_device_mddi1.dev, OFF),
 	CLK_PCOM("gp_clk",	GP_CLK,		NULL, 0),
 	CLK_PCOM("grp_clk",	GRP_3D_CLK,	NULL, OFF),
 	CLK_PCOM("i2c_clk",	I2C_CLK,	&msm_device_i2c.dev, 0),
@@ -569,7 +569,7 @@ struct clk msm_clocks_7x01a[] = {
 	CLK_PCOM("icodec_tx_clk",	ICODEC_TX_CLK,	NULL, 0),
 	CLK_PCOM("imem_clk",	IMEM_CLK,	NULL, OFF),
 	CLK_PCOM("mdc_clk",	MDC_CLK,	NULL, 0),
-	CLK_PCOM("mdp_clk",	MDP_CLK,	NULL, OFF),
+	CLK_PCOM("mdp_clk",	MDP_CLK,	&msm_device_mdp.dev, OFF),
 	CLK_PCOM("pbus_clk",	PBUS_CLK,	NULL, 0),
 	CLK_PCOM("pcm_clk",	PCM_CLK,	NULL, 0),
 #ifdef CONFIG_MACH_GALAXY
@@ -608,16 +608,3 @@ struct clk msm_clocks_7x01a[] = {
 };
 
 unsigned msm_num_clocks_7x01a = ARRAY_SIZE(msm_clocks_7x01a);
-
-void __init msm_register_device(struct platform_device *pdev, void *data)
-{
-	int ret;
-
-	pdev->dev.platform_data = data;
-
-	ret = platform_device_register(pdev);
-	if (ret)
-		dev_err(&pdev->dev,
-			  "%s: platform_device_register() failed = %d\n",
-			  __func__, ret);
-}
