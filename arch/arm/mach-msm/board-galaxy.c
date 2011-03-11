@@ -838,7 +838,7 @@ static void __init galaxy_init(void)
 
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 
-	//bcm4325_init();
+	bcm4325_init();
 }
 
 static void __init galaxy_fixup(struct machine_desc *desc, struct tag *tags,
