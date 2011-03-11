@@ -515,9 +515,9 @@ static struct mmc_blk_data *mmc_blk_alloc(struct mmc_card *card)
 	int devidx, ret;
 
 #ifdef CONFIG_MACH_GALAXY
-	if ( card && !(strcmp(mmc_card_id(card), "mmc0:0001")) && !(strcmp(mmc_card_name(card), "XME0DM"))) {
+	if ( card && !(strcmp(mmc_card_id(card), "mmc2:0001")) && !(strcmp(mmc_card_name(card), "XME0DM"))) {
 		devidx = 0;
-	} else if ( card && !(strncmp(mmc_card_id(card), "mmc1", 4))) {
+	} else if ( card && !(strncmp(mmc_card_id(card), "mmc0", 4))) {
 		devidx = 1;
 	}
 	else

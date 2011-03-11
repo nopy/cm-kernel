@@ -73,61 +73,6 @@ static void msm_sdcc_setup_gpio(int dev_id, unsigned int enable)
 	}
 }
 
-static void sdcc_gpio_init(void)
-{
-#ifdef CONFIG_MMC_MSM_CARD_HW_DETECTION
-	int rc = 0;
-	if (gpio_request(GPIO_FLASH_DETECT, "sdc1_status_irq"))
-		pr_err("failed to request gpio sdc1_status_irq\n");
-	rc = gpio_tlmm_config(GPIO_CFG(GPIO_FLASH_DETECT, 0, GPIO_INPUT, GPIO_PULL_UP,
-				GPIO_2MA), GPIO_ENABLE);
-	if (rc)
-		printk(KERN_ERR "%s: Failed to configure GPIO %d\n",
-				__func__, rc);
-#endif
-	/* SDC1 GPIOs */
-	if (gpio_request(51, "sdc1_data_3"))
-		pr_err("failed to request gpio sdc1_data_3\n");
-	if (gpio_request(52, "sdc1_data_2"))
-		pr_err("failed to request gpio sdc1_data_2\n");
-	if (gpio_request(53, "sdc1_data_1"))
-		pr_err("failed to request gpio sdc1_data_1\n");
-	if (gpio_request(54, "sdc1_data_0"))
-		pr_err("failed to request gpio sdc1_data_0\n");
-	if (gpio_request(55, "sdc1_cmd"))
-		pr_err("failed to request gpio sdc1_cmd\n");
-	if (gpio_request(56, "sdc1_clk"))
-		pr_err("failed to request gpio sdc1_clk\n");
-
-	/* SDC2 GPIOs */
-	if (gpio_request(62, "sdc2_clk"))
-		pr_err("failed to request gpio sdc2_clk\n");
-	if (gpio_request(63, "sdc2_cmd"))
-		pr_err("failed to request gpio sdc2_cmd\n");
-	if (gpio_request(64, "sdc2_data_3"))
-		pr_err("failed to request gpio sdc2_data_3\n");
-	if (gpio_request(65, "sdc2_data_2"))
-		pr_err("failed to request gpio sdc2_data_2\n");
-	if (gpio_request(66, "sdc2_data_1"))
-		pr_err("failed to request gpio sdc2_data_1\n");
-	if (gpio_request(67, "sdc2_data_0"))
-		pr_err("failed to request gpio sdc2_data_0\n");
-
-	/* SDC3 GPIOs */
-	if (gpio_request(88, "sdc3_clk"))
-		pr_err("failed to request gpio sdc2_clk\n");
-	if (gpio_request(89, "sdc3_cmd"))
-		pr_err("failed to request gpio sdc2_cmd\n");
-	if (gpio_request(90, "sdc3_data_3"))
-		pr_err("failed to request gpio sdc2_data_3\n");
-	if (gpio_request(91, "sdc3_data_2"))
-		pr_err("failed to request gpio sdc2_data_2\n");
-	if (gpio_request(92, "sdc3_data_1"))
-		pr_err("failed to request gpio sdc2_data_1\n");
-	if (gpio_request(93, "sdc3_data_0"))
-		pr_err("failed to request gpio sdc2_data_0\n");
-}
-
 static uint32_t msm_sdcc_setup_power(struct device *dv, unsigned int vdd)
 {
 	int rc = 0;
@@ -188,25 +133,18 @@ static uint32_t galaxy_movinand_setup_power(struct device *dv, unsigned int vdd)
 	return 0;
 }
 
-#ifdef CONFIG_MMC_MSM_CARD_HW_DETECTION
 static unsigned int galaxy_sdcc_slot_status(struct device *dev)
 {
-	int rc;
-	rc = gpio_get_value(O_FLASH_DETECT);
+	unsigned int status;
 
-	rc = rc?0:1 ;
-	return rc;
+	status = (unsigned) gpio_get_value(GPIO_FLASH_DETECT);
+	return !status;
 }
-#endif
 
 static struct mmc_platform_data galaxy_sdcc_data = {
 	.ocr_mask	= MMC_VDD_28_29,
 	.translate_vdd	= msm_sdcc_setup_power,
-#ifdef CONFIG_MMC_MSM_CARD_HW_DETECTION
 	.status         = galaxy_sdcc_slot_status,
-	.status_irq	= MSM_GPIO_TO_INT(GPIO_FLASH_DETECT),
-	.irq_flags      = IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
-#endif
 };
 
 static struct mmc_platform_data movinand_sdcc_data = {
@@ -330,9 +268,11 @@ int galaxy_wifi_reset(int on) {
 
 void __init galaxy_init_mmc(void)
 {
-	//vreg_mmc = vreg_get(NULL, "mmc");
+	int rc = 0;
+
+	vreg_mmc = vreg_get(NULL, "mmc");
 	if (IS_ERR(vreg_mmc)) {
-		//printk(KERN_ERR "%s: vreg get failed ($ld)\n", __func__, PTR_ERR(vreg_mmc));
+		printk(KERN_ERR "%s: vreg get failed (%ld)\n", __func__, PTR_ERR(vreg_mmc));
 		return;
 	}
 
@@ -342,12 +282,18 @@ void __init galaxy_init_mmc(void)
 		return;
 	}
 
+	/*if (gpio_request(GPIO_FLASH_DETECT, "sdc1_status_irq"))
+		pr_err("failed to request gpio sdc1_status_irq\n");
+	rc = gpio_tlmm_config(GPIO_CFG(GPIO_FLASH_DETECT, 0, GPIO_INPUT, GPIO_PULL_UP,
+				GPIO_2MA), GPIO_ENABLE);
+	if (rc)
+		printk(KERN_ERR "%s: Failed to configure GPIO %d\n",
+			__func__, rc);*/
+
 	/* wake up the system when inserting or removing SD card */
-//	set_irq_wake(MSM_GPIO_TO_INT(GPIO_FLASH_DETECT), 1);
+	//set_irq_wake(MSM_GPIO_TO_INT(GPIO_FLASH_DETECT), 1);
 
-//	sdcc_gpio_init();
-
-	msm_add_sdcc(3, &movinand_sdcc_data, 0, 0);
-	//msm_add_sdcc(1, &galaxy_sdcc_data, 0, 0);
+	msm_add_sdcc(1, &galaxy_sdcc_data, /*MSM_GPIO_TO_INT(GPIO_FLASH_DETECT)*/ 0 , 0);
 	msm_add_sdcc(2, &wifi_data, 0, 0);
+	msm_add_sdcc(3, &movinand_sdcc_data, 0, 0);
 }
