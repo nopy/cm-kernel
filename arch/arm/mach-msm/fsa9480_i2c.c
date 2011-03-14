@@ -13,6 +13,7 @@
  */
 
 #include <linux/i2c.h>
+#include <linux/irq.h>
 #include <linux/slab.h>
 #include <mach/gpio.h>
 #include <linux/miscdevice.h>
@@ -38,6 +39,10 @@ static int pclk_set;
 #define FSA9480_DEVICE_ID_ADD 0x01
 #define FSA9480_DEVICE_TYPE1_ADD 0x0A
 #define FSA9480_DEVICE_TYPE2_ADD 0x0B
+#define FSA9480_REG_INT1		0x03
+#define FSA9480_REG_INT2		0x04
+#define FSA9480_REG_INT1_MASK		0x05
+#define FSA9480_REG_INT2_MASK		0x06
 
 #define IRQ_USB_DET	MSM_GPIO_TO_INT(GPIO_USB_DET)
 
@@ -134,6 +139,21 @@ static int fsa9480_i2c_read(unsigned char u_addr, unsigned char *pu_data)
 		printk(KERN_ERR "fsa9480: rxdata error %d add:0x%02x\n", rc, u_addr);
 	return rc;	
 }
+
+static int fsa9480_read_irq(int *value)
+{
+	int ret;
+
+	ret = i2c_smbus_read_i2c_block_data(pclient,
+			FSA9480_REG_INT1, 2, (u8 *)value);
+	*value &= 0xffff;
+
+	if (ret < 0)
+		dev_err(&pclient->dev, "%s: err %d\n", __func__, ret);
+
+	return ret;
+}
+
 
 
 static void fsa9480_chip_init(void)
@@ -255,26 +275,44 @@ int fsa_suspended = 0;
 
 void AutoSetting(void);
 //extern unsigned char ftm_sleep;
-extern int cable_status_update(int status);
+extern irqreturn_t batt_level_update_isr(int, void *);
 
 static irqreturn_t usb_switch_interrupt_handler(int irq, void *data)
 {
-	int ret;
-	disable_irq(irq);
+	int status;
+	int value1, value2;
+	int retry_limit = 10;
+
+	printk("fsa9480: IRQ FIRED\n");
+	//fsa9480_read_irq(&status);
+	//FIXME used to schedule work as it check cable status,
+	//but need own handling
+	batt_level_update_isr(irq, data);
+
+	set_irq_type(IRQ_USB_DET, IRQF_TRIGGER_LOW);
+	do {
+		value1 = gpio_get_value(GPIO_USB_DET);
+		set_irq_type(IRQ_USB_DET, value1 ?
+			IRQF_TRIGGER_LOW : IRQF_TRIGGER_HIGH);
+		value2 = gpio_get_value(GPIO_USB_DET);
+	} while (value1 != value2 && retry_limit-- > 0);
+
+	/*printk("fsa9480: value2 = %d (%d retries)",
+		value2, (10-retry_limit));*/
+
 
 /*	if (ftm_sleep == 1)
 	 AutoSetting();*/
 
-	enable_irq(irq);
 	return IRQ_HANDLED;
 }
-
 
 static int fsa9480_probe(struct i2c_client *client)
 {
 	struct fsa9480_data *mt;
 	int err = 0;
 	unsigned char cont_reg;
+	int ret, intr;
 	printk(KERN_INFO "fsa9480: probe\n");
 	if(!i2c_check_functionality(client->adapter, I2C_FUNC_I2C))
 		goto exit_check_functionality_failed;		
@@ -298,37 +336,51 @@ static int fsa9480_probe(struct i2c_client *client)
 	fsa9480_i2c_write_reg(0x02, 0x1E); // FSA9480 initilaization
 	fsa9480_i2c_read_reg(0x02, &cont_reg); // FSA9480 initilaization check
 	printk("fsa9480 : Initial control reg 0x02 : 0x%x\n", cont_reg);
+
+
+	/* clear interrupt */
+	fsa9480_read_irq(&intr);
+
+	/* unmask interrupt (attach/detach only) */
+	fsa9480_i2c_write_reg(FSA9480_REG_INT1_MASK, 0xfc);
+	fsa9480_i2c_write_reg(FSA9480_REG_INT2_MASK, 0x1f);
+
 	fsa_init_done = 1;
 
-#if 1
-	int retval;
-	//ret = gpio_configure(GPIO_USB_DET, GPIOF_INPUT | IRQF_TRIGGER_LOW);
-	printk("fsa9480 : init 1 irq:%d\n", IRQ_USB_DET);
-	retval = gpio_request(GPIO_USB_DET , "micro usb switch");
-	if (retval  < 0) {
-		printk(KERN_ERR "<!> gpio_request failed!!!\n");
-	}
+	ret = gpio_request(GPIO_USB_DET, "MicroUSB switch");
+	if (ret < 0)
+		goto err_request_usb_det_gpio;
+	printk("fsa9480 : gpio_request ok\n");
 
-	retval = gpio_direction_input(49);
-	printk("fsa9480 : init 2\n");
-	if (retval < 0) {
-		printk(KERN_ERR "<!> gpio_direction_input failed!!!\n");
-	}
-	
-/*	retval = set_irq_wake(IRQ_USB_DET, 1);
-	if(request_irq(IRQ_USB_DET, usb_switch_interrupt_handler, IRQF_TRIGGER_LOW | IRQF_ONESHOT, "MICROUSB", 0)) {
-		free_irq(IRQ_USB_DET, NULL);
-		printk("[error] usb_switch_interrupt_handler can't register the handler! and passing....\n");
-	}*/
-	printk("fsa9480 : init 3\n");
+	ret = gpio_direction_input(GPIO_USB_DET);
+	if (ret < 0)
+		goto err_set_usb_det_gpio_direction;
+	printk("fsa9480 : direction input ok\n");
 
-#endif
+	ret = request_irq(IRQ_USB_DET,
+			  usb_switch_interrupt_handler,
+			  IRQF_TRIGGER_LOW, "usb_switch", NULL);
+	if (ret < 0) {
+		printk("fsa9480: request irq failed\n");
+		goto err_request_usb_det_irq;
+	}
+	ret = set_irq_wake(IRQ_USB_DET, 1);
+	if (ret < 0)
+		printk("fsa9480: error setting irq wake\n");
+
+	printk("fsa9480 : request irq ok\n");
 
 	return 0;
 	
 exit_misc_device_register_failed:
 exit_alloc_data_failed:
 exit_check_functionality_failed:
+
+err_request_usb_det_irq:
+	free_irq(IRQ_USB_DET,0);
+err_set_usb_det_gpio_direction:
+err_request_usb_det_gpio:
+	gpio_free(IRQ_USB_DET);
 	
 	return err;
 }
