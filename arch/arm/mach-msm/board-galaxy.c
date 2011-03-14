@@ -787,10 +787,14 @@ static void galaxy_phy_reset(void)
 static void bcm4325_init(void)	// added for bcm4325
 {
 
+	gpio_request(GPIO_BT_WAKE, "bt_wake");
 	gpio_direction_output(GPIO_BT_WAKE, 0);       // BT_WAKE_N
 	msleep(100);
+	gpio_request(GPIO_WLAN_RESET, "wlan_reset");
 	gpio_direction_output(GPIO_WLAN_RESET, 0);       // WLAN
+	gpio_request(GPIO_BT_RESET, "bt_reset");
 	gpio_direction_output(GPIO_BT_RESET, 0);       // BT
+	gpio_request(GPIO_BT_REG_ON, "bt_reg_on");
 	gpio_direction_output(GPIO_BT_REG_ON, 0);       // REG_ON
 }
 
