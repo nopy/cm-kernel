@@ -65,10 +65,10 @@ int bcm4325_set_core_power(unsigned bcm_core, unsigned pow_on)
 	/* if another core is OFF */
 	if( gpio_get_value(gpio_rst_another) == 0 )
 	{
-		/* enable WLAN_BT_REG_ON */
-		gpio_direction_output(GPIO_WLAN_BT_REG_ON, pow_on);
-		printk("bcm4325_power: Set WLAN_BT_REG_ON %s because %s is OFF now.\n",
-			gpio_get_value(GPIO_WLAN_BT_REG_ON)?"High":"Low", bcm_core?"BT":"WLAN");
+		/* enable BT_REG_ON */
+		gpio_direction_output(GPIO_BT_REG_ON, pow_on);
+		printk("bcm4325_power: Set BT_REG_ON %s because %s is OFF now.\n",
+		gpio_get_value(GPIO_BT_REG_ON)?"High":"Low", bcm_core?"BT":"WLAN");
 		msleep(150);
 	}
 

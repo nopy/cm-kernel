@@ -26,6 +26,8 @@
 //#include <linux/fsa9480.h> /* define ioctls */
 #include <linux/uaccess.h>
 
+#include "board-galaxy.h"
+
 #define ALLOW_USPACE_RW		1
 
 static struct i2c_client *pclient;
@@ -37,6 +39,7 @@ static int pclk_set;
 #define FSA9480_DEVICE_TYPE1_ADD 0x0A
 #define FSA9480_DEVICE_TYPE2_ADD 0x0B
 
+#define IRQ_USB_DET	MSM_GPIO_TO_INT(GPIO_USB_DET)
 
 
 DECLARE_MUTEX(fsa_sem);
@@ -250,9 +253,6 @@ static struct miscdevice fsa9480_device = {
 extern fsa_init_done;
 int fsa_suspended = 0;
 
-#define GPIO_MICROUSB_DET		49
-#define MICROUSB_DET			MSM_GPIO_TO_INT(GPIO_MICROUSB_DET)
-
 void AutoSetting(void);
 //extern unsigned char ftm_sleep;
 extern int cable_status_update(int status);
@@ -302,9 +302,9 @@ static int fsa9480_probe(struct i2c_client *client)
 
 #if 1
 	int retval;
-	//ret = gpio_configure(GPIO_MICROUSB_DET, GPIOF_INPUT | IRQF_TRIGGER_LOW);
-	printk("fsa9480 : init 1 irq:%d\n", MICROUSB_DET);
-	retval = gpio_request(49 , "micro usb switch");
+	//ret = gpio_configure(GPIO_USB_DET, GPIOF_INPUT | IRQF_TRIGGER_LOW);
+	printk("fsa9480 : init 1 irq:%d\n", IRQ_USB_DET);
+	retval = gpio_request(GPIO_USB_DET , "micro usb switch");
 	if (retval  < 0) {
 		printk(KERN_ERR "<!> gpio_request failed!!!\n");
 	}
@@ -315,13 +315,13 @@ static int fsa9480_probe(struct i2c_client *client)
 		printk(KERN_ERR "<!> gpio_direction_input failed!!!\n");
 	}
 	
-	/*if(request_irq(MICROUSB_DET, usb_switch_interrupt_handler, IRQF_TRIGGER_LOW | IRQF_ONESHOT, "MICROUSB", 0)) {
-		free_irq(MICROUSB_DET, NULL);
+/*	retval = set_irq_wake(IRQ_USB_DET, 1);
+	if(request_irq(IRQ_USB_DET, usb_switch_interrupt_handler, IRQF_TRIGGER_LOW | IRQF_ONESHOT, "MICROUSB", 0)) {
+		free_irq(IRQ_USB_DET, NULL);
 		printk("[error] usb_switch_interrupt_handler can't register the handler! and passing....\n");
-	}
+	}*/
 	printk("fsa9480 : init 3\n");
 
-	retval = set_irq_wake(MICROUSB_DET, 1);*/
 #endif
 
 	return 0;
