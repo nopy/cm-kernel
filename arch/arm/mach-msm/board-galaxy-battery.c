@@ -1005,8 +1005,7 @@ int cable_status_update(int status)
         source = batt_info.rep.charging_source;
         mutex_unlock(&batt_info.lock);
 
-//	msm_hsusb_set_vbus_state(source == CHARGER_USB);
-//	msm_hsusb_set_vbus_state(1); // temp code by gtuo.park 2009.03.02
+	msm_hsusb_set_vbus_state(source == CHARGER_USB);
 
         if (source == CHARGER_USB && !fsa_suspended) { 
 		wake_lock(&vbus_wake_lock);

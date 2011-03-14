@@ -621,7 +621,6 @@ void __init msm_add_usb_devices(void)
 #ifdef CONFIG_USB_ANDROID_DIAG
 	platform_device_register(&usb_diag_device);
 #endif
-	msm_hsusb_set_vbus_state(1);
 }
 
 static uint32_t new_board_gpio_table[] = {
