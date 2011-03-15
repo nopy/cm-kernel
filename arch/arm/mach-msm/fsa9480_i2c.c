@@ -19,12 +19,9 @@
 #include <linux/miscdevice.h>
 #include <linux/delay.h>
 #include <linux/input.h>
-//#include <mach/rpc_pm.h>
 #include <mach/vreg.h>
 #include <asm/io.h>
-//#include <asm/mach-types.h>
 
-//#include <linux/fsa9480.h> /* define ioctls */
 #include <linux/uaccess.h>
 
 #include "board-galaxy.h"
@@ -33,19 +30,33 @@
 
 static struct i2c_client *pclient;
 
-static int opened;
-static int pclk_set;
-
-#define FSA9480_DEVICE_ID_ADD 0x01
-#define FSA9480_DEVICE_TYPE1_ADD 0x0A
-#define FSA9480_DEVICE_TYPE2_ADD 0x0B
+#define FSA9480_DEVICE_ID_ADD		0x01
+#define FSA9480_REG_CTRL		0x02
 #define FSA9480_REG_INT1		0x03
 #define FSA9480_REG_INT2		0x04
 #define FSA9480_REG_INT1_MASK		0x05
 #define FSA9480_REG_INT2_MASK		0x06
+#define FSA9480_DEVICE_TYPE1_ADD	0x0A
+#define FSA9480_DEVICE_TYPE2_ADD	0x0B
+
+/* Control */
+#define CON_SWITCH_OPEN		(1 << 4)
+#define CON_RAW_DATA		(1 << 3)
+#define CON_MANUAL_SW		(1 << 2)
+#define CON_WAIT		(1 << 1)
+#define CON_INT_MASK		(1 << 0)
+#define CON_MASK		(CON_SWITCH_OPEN | CON_RAW_DATA | \
+				CON_MANUAL_SW | CON_WAIT)
 
 #define IRQ_USB_DET	MSM_GPIO_TO_INT(GPIO_USB_DET)
 
+#define DEBUG_USB_SWITCH
+
+#ifndef DEBUG_USB_SWITCH
+#define DBG(fmt, arg...) do {} while (0)
+#else
+#define DBG(fmt, arg...) printk(KERN_INFO "%s: " fmt "\n", __func__, ## arg)
+#endif
 
 DECLARE_MUTEX(fsa_sem);
 
@@ -54,10 +65,6 @@ struct fsa9480_data {
 };
 
 static DECLARE_WAIT_QUEUE_HEAD(g_data_ready_wait_queue);
-
-
-#define I2C_WRITE(reg,data) if (!fsa9480_i2c_write(reg, data) < 0) return -EIO
-#define I2C_READ(reg,data) if (fsa9480_i2c_read(reg,data) < 0 ) return -EIO
 
 
 int fsa9480_i2c_tx_data(char* txData, int length)
@@ -154,8 +161,6 @@ static int fsa9480_read_irq(int *value)
 	return ret;
 }
 
-
-
 static void fsa9480_chip_init(void)
 {
 	printk(KERN_INFO "fsa9480: init\n");
@@ -163,92 +168,28 @@ static void fsa9480_chip_init(void)
 		return;
 
 	msleep(2);
-	printk(KERN_INFO "fsa9480: fsa9480 sensor init sequence done\n");
-}
-
-static int fsa9480_open(struct inode *ip, struct file *fp)
-{
-	int rc = -EBUSY;
-	down(&fsa_sem);
-	printk(KERN_INFO "fsa9480: open\n");
-	if (!opened) {
-		printk(KERN_INFO "fsa9480: prevent collapse on idle\n");
-
-//		opened = 1;
-		rc = 0;
-	}
-	up(&fsa_sem);
-	return rc;
-}
-
-static int fsa9480_release(struct inode *ip, struct file *fp)
-{
-	int rc = -EBADF;
-	printk(KERN_INFO "fsa9480: release\n");
-	down(&fsa_sem);
-	if (opened) {
-		printk(KERN_INFO "fsa9480: release clocks\n");
-             // PWR_DOWN Ã³¸® fsa9480_i2c_power_down();
-		printk(KERN_INFO "fsa9480: allow collapse on idle\n");
-
-		rc = pclk_set = opened = 0;
-	}
-	up(&fsa_sem);
-	return rc;
-}
-
-#if ALLOW_USPACE_RW
-#define COPY_FROM_USER(size) ({                                         \
-        if (copy_from_user(rwbuf, argp, size)) rc = -EFAULT;            \
-        !rc; })
-#endif
-
-static long fsa9480_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
-{
-#if ALLOW_USPACE_RW
-	void __user *argp = (void __user *)arg;
-#endif
-	int rc = 0;
-
-	down(&fsa_sem); 
-
-	switch(cmd) {
-    default:
-        printk(KERN_INFO "fsa9480: unknown ioctl %d\n", cmd);
-        break;
-	}
-
-	up(&fsa_sem);
-
-	return rc;
+	DBG("sensor init sequence done");
 }
 
 unsigned char fsa9480_i2c_read_reg(unsigned char addr, unsigned char *reg_value)
 {
-        unsigned char data;
+        unsigned char data = 0;
 
-	I2C_READ(addr, &data);
+	if (fsa9480_i2c_read(addr, &data) < 0 )
+		return -EIO;
 
-//	printk("[FSA9480] I2C read 0x%x Reg Data : 0x%x\n",addr, data);
+	DBG("I2C read 0x%x Reg Data : 0x%x",addr, data);
 	*reg_value = data;
 	return 0;
 }
 
 unsigned char fsa9480_i2c_write_reg(unsigned char addr, unsigned char reg_value)
 {
-	I2C_WRITE(addr, reg_value);
+	DBG("I2C write 0x%x Reg Data : 0x%x", addr, reg_value);
+	if (!fsa9480_i2c_write(addr, reg_value) < 0)
+		return -EIO;
 	return 0;
 }
-
-int fsa9480_i2c_sensor_init(void)
-{
-		printk("FSA9480 : %s is done.\n", __func__);
-	return 0;
-}
-
-
-#undef I2C_WRITE
-#undef I2C_READ
 
 static int fsa9480_init_client(struct i2c_client *client)
 {
@@ -257,57 +198,31 @@ static int fsa9480_init_client(struct i2c_client *client)
 	return 0;
 }
 
-static struct file_operations fsa9480_fops = {
-        .owner 	= THIS_MODULE,
-        .open 	= fsa9480_open,
-        .release = fsa9480_release,
-        .unlocked_ioctl = fsa9480_ioctl,
-};
-
-static struct miscdevice fsa9480_device = {
-        .minor 	= MISC_DYNAMIC_MINOR,
-        .name 	= "fsa9480",
-        .fops 	= &fsa9480_fops,
-};
-
-extern fsa_init_done;
+extern int fsa_init_done;
 int fsa_suspended = 0;
 
-void AutoSetting(void);
-//extern unsigned char ftm_sleep;
 extern irqreturn_t batt_level_update_isr(int, void *);
 
 static irqreturn_t usb_switch_interrupt_handler(int irq, void *data)
 {
+	unsigned char ctrl; 
 	int status;
-	int value1, value2;
-	int retry_limit = 10;
 
 	printk("fsa9480: IRQ FIRED\n");
-	//fsa9480_read_irq(&status);
-	//FIXME used to schedule work as it check cable status,
-	//but need own handling
+	fsa9480_read_irq(&status);
+	fsa9480_i2c_read_reg(FSA9480_REG_CTRL, &ctrl);
+	ctrl &= ~CON_INT_MASK;
+	fsa9480_i2c_write_reg(FSA9480_REG_CTRL, ctrl);
+
+	//FIXME: cable status need to be handle here
 	batt_level_update_isr(irq, data);
 
-	set_irq_type(IRQ_USB_DET, IRQF_TRIGGER_LOW);
-	do {
-		value1 = gpio_get_value(GPIO_USB_DET);
-		set_irq_type(IRQ_USB_DET, value1 ?
-			IRQF_TRIGGER_LOW : IRQF_TRIGGER_HIGH);
-		value2 = gpio_get_value(GPIO_USB_DET);
-	} while (value1 != value2 && retry_limit-- > 0);
-
-	/*printk("fsa9480: value2 = %d (%d retries)",
-		value2, (10-retry_limit));*/
-
-
-/*	if (ftm_sleep == 1)
-	 AutoSetting();*/
+	printk("fsa9480: status = %d\n", status);
 
 	return IRQ_HANDLED;
 }
 
-static int fsa9480_probe(struct i2c_client *client)
+static int fsa9480_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	struct fsa9480_data *mt;
 	int err = 0;
@@ -327,15 +242,9 @@ static int fsa9480_probe(struct i2c_client *client)
 	pclient = client;
 	fsa9480_chip_init();
 	
-	/* Register a misc device */
-	err = misc_register(&fsa9480_device);
-	if(err) {
-		printk(KERN_ERR "fsa9480_probe: misc_register failed \n");
-		goto exit_misc_device_register_failed;
-	}
-	fsa9480_i2c_write_reg(0x02, 0x1E); // FSA9480 initilaization
-	fsa9480_i2c_read_reg(0x02, &cont_reg); // FSA9480 initilaization check
-	printk("fsa9480 : Initial control reg 0x02 : 0x%x\n", cont_reg);
+	fsa9480_i2c_write_reg(FSA9480_REG_CTRL, 0x1E); // FSA9480 initilaization
+	fsa9480_i2c_read_reg(FSA9480_REG_CTRL, &cont_reg); // FSA9480 initilaization check
+	DBG("Initial control reg 0x02 : 0x%x", cont_reg);
 
 
 	/* clear interrupt */
@@ -347,19 +256,19 @@ static int fsa9480_probe(struct i2c_client *client)
 
 	fsa_init_done = 1;
 
-	ret = gpio_request(GPIO_USB_DET, "MicroUSB switch");
+	ret = gpio_request(GPIO_USB_DET, "usb_switch");
 	if (ret < 0)
 		goto err_request_usb_det_gpio;
-	printk("fsa9480 : gpio_request ok\n");
+	DBG("gpio_request ok");
 
 	ret = gpio_direction_input(GPIO_USB_DET);
 	if (ret < 0)
 		goto err_set_usb_det_gpio_direction;
-	printk("fsa9480 : direction input ok\n");
+	DBG("direction input ok");
 
-	ret = request_irq(IRQ_USB_DET,
+	ret = request_threaded_irq(IRQ_USB_DET, NULL,
 			  usb_switch_interrupt_handler,
-			  IRQF_TRIGGER_LOW, "usb_switch", NULL);
+			  IRQF_TRIGGER_LOW | IRQF_ONESHOT , "usb_switch", NULL);
 	if (ret < 0) {
 		printk("fsa9480: request irq failed\n");
 		goto err_request_usb_det_irq;
@@ -368,11 +277,10 @@ static int fsa9480_probe(struct i2c_client *client)
 	if (ret < 0)
 		printk("fsa9480: error setting irq wake\n");
 
-	printk("fsa9480 : request irq ok\n");
+	DBG("fsa9480 : request irq ok");
 
 	return 0;
 	
-exit_misc_device_register_failed:
 exit_alloc_data_failed:
 exit_check_functionality_failed:
 
@@ -395,12 +303,11 @@ static int fsa9480_remove(struct i2c_client *client)
 #endif
 	i2c_set_clientdata(client, NULL);
 	pclient = NULL;
-	misc_deregister(&fsa9480_device);
 	kfree(mt);
 	return 0;
 }
 
-static int fsa9480_suspend(struct i2c_client *client)
+static int fsa9480_suspend(struct i2c_client *client, pm_message_t mesg)
 {
 	fsa_suspended = 1;
 	return 0;
@@ -441,61 +348,6 @@ static void __exit fsa9480_exit(void)
 {
 	i2c_del_driver(&fsa9480_driver);
 }
-
-/*================================================
-	When send sleep cmd via UART, UART3_RXD, TXD port make disable
-================================================*/
-
-#define REGISTER_MANUALSW1	0x13                       // Read/Write
-#define REGISTER_MANUALSW2	0x14                       // Read/Write
-
-// Hidden Register
-#define HIDDEN_REGISTER_MANUAL_OVERRDES1	0x1B  // Read/Write
-
-void ManualSetting(unsigned char valManualSw1, unsigned char valManualSw2)
-{
-	unsigned char cont_reg, man_sw1, man_sw2;
-
-	fsa9480_i2c_write_reg(REGISTER_MANUALSW1, valManualSw1);
-	mdelay(20);
-	fsa9480_i2c_write_reg(REGISTER_MANUALSW2, valManualSw2);
-	mdelay(20);
-
-	//when detached the cable, Control register automatically be restored.
-	fsa9480_i2c_read_reg(0x02, &cont_reg);
-	mdelay(20);
-	fsa9480_i2c_write_reg(0x02, 0x1A);
-
-	// Read current setting value , manual sw1, manual sw2, control register.
-	fsa9480_i2c_read_reg(REGISTER_MANUALSW1, &man_sw1);
-	mdelay(20);
-	fsa9480_i2c_read_reg(REGISTER_MANUALSW2, &man_sw2);
-	mdelay(20);
-	fsa9480_i2c_read_reg(0x02, &cont_reg);
-}
-
-void AutoSetting(void)
-{
-	unsigned char cont_reg=0xff;
-	unsigned char hidden_reg;
-	
-	fsa9480_i2c_write_reg(0x02, 0x1E);
-	fsa9480_i2c_read_reg(0x03, &hidden_reg);
-}
-
-void Make_RXD_LOW(void)
-{
-	unsigned char hidden_reg;
-	
-	fsa9480_i2c_write_reg(HIDDEN_REGISTER_MANUAL_OVERRDES1, 0x0a); 
-	mdelay(20);
-	fsa9480_i2c_read_reg(HIDDEN_REGISTER_MANUAL_OVERRDES1, &hidden_reg);
-	ManualSetting(0x00, 0x00);
-}
-EXPORT_SYMBOL(ManualSetting);
-EXPORT_SYMBOL(AutoSetting);
-EXPORT_SYMBOL(Make_RXD_LOW);
-
 
 EXPORT_SYMBOL(fsa9480_i2c_read_reg);
 
