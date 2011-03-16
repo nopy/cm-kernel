@@ -1294,7 +1294,7 @@ static irqreturn_t melfas_ts_irq_handler(int irq, void *dev_id)
 	struct melfas_ts_data *ts = dev_id;
 
 	/* printk("melfas_ts_irq_handler\n"); */
-	disable_irq(ts->client->irq);
+	disable_irq_nosync(ts->client->irq);
 	queue_work(melfas_wq, &ts->work);
 	return IRQ_HANDLED;
 }
@@ -1434,7 +1434,7 @@ static int __init melfas_ts_probe(struct i2c_client *client)
 	set_bit(BTN_TOUCH, ts->input_dev->keybit);
 	set_bit(EV_ABS, ts->input_dev->evbit);
 
-  printk("melfas_ts_probe: max_x %d, max_y %d\n", max_x, max_y);
+	printk("melfas_ts_probe: max_x %d, max_y %d\n", max_x, max_y);
 	input_set_abs_params(ts->input_dev, ABS_X, 0, max_x, 0, 0);
 	input_set_abs_params(ts->input_dev, ABS_Y, 0, max_y, 0, 0);
 	input_set_abs_params(ts->input_dev, ABS_PRESSURE, 0, 255, 0, 0);
@@ -1447,23 +1447,17 @@ static int __init melfas_ts_probe(struct i2c_client *client)
 		goto err_input_register_device_failed;
 	}
 #ifdef CONFIG_TOUCHSCREEN_MELFAS_I2C_TSI_FW_UPDATE
-  ret = misc_register(&melfas_fw_device);
+	ret = misc_register(&melfas_fw_device);
 	if (ret) {
 		printk(KERN_ERR "melfas_fw_device: melfas_fw_device register failed\n");
 		goto err_misc_register_device_failed;
 	}
 #endif
 
-  ts_irq_num = client->irq;
+	ts_irq_num = client->irq;
 
-  enable_irq(client->irq);
 	if (client->irq) {
-    printk("requesting irq\n");
-#if 1  // Because of Lock up
-		ret = request_irq(client->irq, melfas_ts_irq_handler, IRQF_TRIGGER_FALLING, client->name, ts);
-#else
-		ret = request_irq(client->irq, melfas_ts_irq_handler, IRQF_TRIGGER_LOW, client->name, ts);
-#endif
+		ret = request_irq(client->irq, melfas_ts_irq_handler, IRQF_TRIGGER_LOW, "touchscreen", ts);
 		if (ret == 0)
 			ts->use_irq = 1;
 		else
@@ -1471,13 +1465,11 @@ static int __init melfas_ts_probe(struct i2c_client *client)
 	}
 	
 
-  printk("irq request: %d\n", ts->use_irq);
 	if (!ts->use_irq) {
 		hrtimer_init(&ts->timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 		ts->timer.function = melfas_ts_timer_func;
 		hrtimer_start(&ts->timer, ktime_set(1, 0), HRTIMER_MODE_REL);
 	}
-  printk("timer started\n");
 
 #if 0 //def CONFIG_HAS_EARLYSUSPEND
 	ts->early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB - 4;

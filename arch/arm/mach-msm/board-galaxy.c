@@ -203,7 +203,7 @@ static struct platform_device touch_i2c_bus = {
 
 static struct i2c_board_info touch_i2c_device = {
 	I2C_BOARD_INFO("melfas-tsi-ts", 0x20),
-//	.irq = MSM_GPIO_TO_INT(GPIO_TOUCH_IRQ),
+	.irq = MSM_GPIO_TO_INT(GPIO_TOUCH_IRQ),
 };
 
 /* camera */
@@ -806,6 +806,9 @@ static void galaxy_reset(void)
 static void __init config_gpios(void) {
 	config_gpio_table(bt_config_uart, ARRAY_SIZE(bt_config_uart));
 	config_gpio_table(camera_off_gpio_table, ARRAY_SIZE(camera_off_gpio_table));
+
+	gpio_request(GPIO_TOUCH_IRQ, "usb_switch");
+	gpio_direction_input(GPIO_TOUCH_IRQ);
 }
 
 
