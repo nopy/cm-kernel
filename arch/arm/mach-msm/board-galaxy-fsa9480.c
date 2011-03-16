@@ -309,13 +309,21 @@ static int fsa9480_remove(struct i2c_client *client)
 
 static int fsa9480_suspend(struct i2c_client *client, pm_message_t mesg)
 {
+	int ret;
 	fsa_suspended = 1;
+	ret = set_irq_wake(IRQ_USB_DET, 1);
+	if (ret < 0)
+		printk("fsa9480: error setting irq wake to 1\n");
 	return 0;
 }
 
 static int fsa9480_resume(struct i2c_client *client)
 {
+	int ret;
 	fsa_suspended = 0;
+	ret = set_irq_wake(IRQ_USB_DET, 0);
+	if (ret < 0)
+		printk("fsa9480: error setting irq wake to 0\n");
 	return 0;
 }
 
