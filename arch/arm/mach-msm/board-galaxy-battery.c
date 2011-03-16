@@ -1892,7 +1892,7 @@ static void batt_level_work_func(struct work_struct *work)
 }
 
 // Added by Anubis_0709
-static irqreturn_t batt_level_update_isr(int irq, void *dev_id)
+irqreturn_t batt_level_update_isr(int irq, void *dev_id)
 {
 	queue_work(batt_level_wq , &batt_level_info.work );
 	return IRQ_HANDLED;
