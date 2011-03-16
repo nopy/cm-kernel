@@ -248,91 +248,6 @@ static struct i2c_board_info cam_pm_i2c_device = {
 #define HSUSB_API_PROG		0x30000064
 #define HSUSB_API_VERS MSM_RPC_VERS(1,1)
 
-
-static void hsusb_gpio_init(void)
-{
-	if (gpio_request(111, "ulpi_data_0"))
-		pr_err("failed to request gpio ulpi_data_0\n");
-	if (gpio_request(112, "ulpi_data_1"))
-		pr_err("failed to request gpio ulpi_data_1\n");
-	if (gpio_request(113, "ulpi_data_2"))
-		pr_err("failed to request gpio ulpi_data_2\n");
-	if (gpio_request(114, "ulpi_data_3"))
-		pr_err("failed to request gpio ulpi_data_3\n");
-	if (gpio_request(115, "ulpi_data_4"))
-		pr_err("failed to request gpio ulpi_data_4\n");
-	if (gpio_request(116, "ulpi_data_5"))
-		pr_err("failed to request gpio ulpi_data_5\n");
-	if (gpio_request(117, "ulpi_data_6"))
-		pr_err("failed to request gpio ulpi_data_6\n");
-	if (gpio_request(118, "ulpi_data_7"))
-		pr_err("failed to request gpio ulpi_data_7\n");
-	if (gpio_request(119, "ulpi_dir"))
-		pr_err("failed to request gpio ulpi_dir\n");
-	if (gpio_request(120, "ulpi_next"))
-		pr_err("failed to request gpio ulpi_next\n");
-	if (gpio_request(121, "ulpi_stop"))
-		pr_err("failed to request gpio ulpi_stop\n");
-}
-
-static unsigned usb_gpio_lpm_config[] = {
-	PCOM_GPIO_CFG(111, 1, GPIO_INPUT, GPIO_NO_PULL, GPIO_2MA),	/* DATA 0 */
-	PCOM_GPIO_CFG(112, 1, GPIO_INPUT, GPIO_NO_PULL, GPIO_2MA),	/* DATA 1 */
-	PCOM_GPIO_CFG(113, 1, GPIO_INPUT, GPIO_NO_PULL, GPIO_2MA),	/* DATA 2 */
-	PCOM_GPIO_CFG(114, 1, GPIO_INPUT, GPIO_NO_PULL, GPIO_2MA),	/* DATA 3 */
-	PCOM_GPIO_CFG(115, 1, GPIO_INPUT, GPIO_NO_PULL, GPIO_2MA),	/* DATA 4 */
-	PCOM_GPIO_CFG(116, 1, GPIO_INPUT, GPIO_NO_PULL, GPIO_2MA),	/* DATA 5 */
-	PCOM_GPIO_CFG(117, 1, GPIO_INPUT, GPIO_NO_PULL, GPIO_2MA),	/* DATA 6 */
-	PCOM_GPIO_CFG(118, 1, GPIO_INPUT, GPIO_NO_PULL, GPIO_2MA),	/* DATA 7 */
-	PCOM_GPIO_CFG(119, 1, GPIO_INPUT, GPIO_NO_PULL, GPIO_2MA),	/* DIR */
-	PCOM_GPIO_CFG(120, 1, GPIO_INPUT, GPIO_NO_PULL, GPIO_2MA),	/* NEXT */
-	PCOM_GPIO_CFG(121, 1, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_2MA),	/* STOP */
-};
-
-static unsigned usb_gpio_lpm_unconfig[] = {
-	PCOM_GPIO_CFG(111, 1, GPIO_OUTPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DATA 0 */
-	PCOM_GPIO_CFG(112, 1, GPIO_OUTPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DATA 1 */
-	PCOM_GPIO_CFG(113, 1, GPIO_OUTPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DATA 2 */
-	PCOM_GPIO_CFG(114, 1, GPIO_OUTPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DATA 3 */
-	PCOM_GPIO_CFG(115, 1, GPIO_OUTPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DATA 4 */
-	PCOM_GPIO_CFG(116, 1, GPIO_OUTPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DATA 5 */
-	PCOM_GPIO_CFG(117, 1, GPIO_OUTPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DATA 6 */
-	PCOM_GPIO_CFG(118, 1, GPIO_OUTPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DATA 7 */
-	PCOM_GPIO_CFG(119, 1, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* DIR */
-	PCOM_GPIO_CFG(120, 1, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), /* NEXT */
-	PCOM_GPIO_CFG(121, 1, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_2MA), /* STOP */
-};
-
-static int usb_config_gpio(int config)
-{
-	int pin, rc;
-
-	if (config) {
-		for (pin = 0; pin < ARRAY_SIZE(usb_gpio_lpm_config); pin++) {
-			rc = gpio_tlmm_config(usb_gpio_lpm_config[pin],
-					      GPIO_ENABLE);
-			if (rc) {
-				printk(KERN_ERR
-				       "%s: gpio_tlmm_config(%#x)=%d\n",
-				       __func__, usb_gpio_lpm_config[pin], rc);
-				return -EIO;
-			}
-		}
-	} else {
-		for (pin = 0; pin < ARRAY_SIZE(usb_gpio_lpm_unconfig); pin++) {
-			rc = gpio_tlmm_config(usb_gpio_lpm_unconfig[pin],
-					      GPIO_ENABLE);
-			if (rc) {
-				printk(KERN_ERR
-				       "%s: gpio_tlmm_config(%#x)=%d\n",
-				       __func__, usb_gpio_lpm_config[pin], rc);
-				return -EIO;
-			}
-		}
-	}
-
-	return 0;
-}
 static void internal_phy_reset(void)
 {
 	struct msm_rpc_endpoint *usb_ep;
@@ -367,9 +282,7 @@ static int galaxy_phy_init_seq[] = { 0x1D, 0x0D, 0x1D, 0x10, -1 };
 static struct msm_hsusb_platform_data msm_hsusb_pdata = {
 	.phy_init_seq = galaxy_phy_init_seq,
 	.phy_reset = internal_phy_reset,
-	//.config_usb_id_gpios = usb_config_gpio,
 	.usb_connected = usb_connected,
-	//.usb_id_pin_gpio = 112,
 };
 
 static char *usb_functions_ums[] = {
@@ -419,7 +332,6 @@ static char *usb_functions_all[] = {
 	"diag",
 #endif
 };
-
 
 static struct android_usb_product usb_products[] = {
 	{
@@ -607,10 +519,6 @@ static struct platform_device galaxy_snd = {
 };
 void __init msm_add_usb_devices(void)
 {
-	/* setup */
-//	hsusb_gpio_init();
-//	usb_config_gpio(1);
-
 	msm_device_hsusb.dev.platform_data = &msm_hsusb_pdata;
 	platform_device_register(&msm_device_hsusb);
 	platform_device_register(&usb_mass_storage_device);
@@ -720,20 +628,6 @@ static uint32_t camera_on_gpio_table[] = {
 	PCOM_GPIO_CFG(61, 0, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_2MA),
 };
 
-//
-//static void config_gpio_table(uint32_t *table, int len)
-//{
-//	int n, rc;
-//	for (n = 0; n < len; n++) {
-//		rc = gpio_tlmm_config(table[n], GPIO_ENABLE);
-//		if (rc) {
-//			printk(KERN_ERR "%s: gpio_tlmm_config(%#x)=%d\n",
-//				__func__, table[n], rc);
-//			break;
-//		}
-//	}
-//}
-
 static struct platform_device *devices[] __initdata = {
 	//&bcm_bt_lpm_device,
 	// &msm_device_uart1,
@@ -807,7 +701,7 @@ static void __init config_gpios(void) {
 	config_gpio_table(bt_config_uart, ARRAY_SIZE(bt_config_uart));
 	config_gpio_table(camera_off_gpio_table, ARRAY_SIZE(camera_off_gpio_table));
 
-	gpio_request(GPIO_TOUCH_IRQ, "usb_switch");
+	gpio_request(GPIO_TOUCH_IRQ, "touchscreen");
 	gpio_direction_input(GPIO_TOUCH_IRQ);
 }
 
@@ -860,30 +754,6 @@ static void __init galaxy_fixup(struct machine_desc *desc, struct tag *tags,
 	mi->bank[0].size = MSM_LINUX_SIZE;
 }
 
-static void __init msm_allocate_memory_regions(void)
-{
-	void *addr;
-	unsigned long size;
-
-//	size = MSM_KERNEL_PANIC_DUMP_SIZE;
-//	addr = alloc_bootmem(size);
-//	MSM_KERNEL_PANIC_DUMP_ADDR = addr;
-
-//	size = MSM_PMEM_KERNEL_EBI1_SIZE;
-//	addr = alloc_bootmem_aligned(size, 0x100000);
-//	android_pmem_kernel_ebi1_pdata.start = __pa(addr);
-//	android_pmem_kernel_ebi1_pdata.size = size;
-//	pr_info("allocating %lu bytes at %p (%lx physical) for kernel"
-//		" ebi1 pmem arena\n", size, addr, __pa(addr));
-
-//	size = MSM_PMEM_GPU1_SIZE;
-//	addr = alloc_bootmem(size);//, 0x100000);
-//	android_pmem_gpu1_pdata.start = __pa(addr);
-//	android_pmem_gpu1_pdata.size = size;
-//	printk(KERN_INFO "allocating %lu bytes at %p (%lx physical)"
-//	       "for gpu1 pmem\n", size, addr, __pa(addr));
-}
-
 //static struct map_desc galaxy_io_desc[] __initdata = {
 //	{
 //		.virtual = (unsigned long) MSM_WEB_BASE,
@@ -897,7 +767,6 @@ static void __init galaxy_map_io(void)
 {
 	msm_map_common_io();
 //	iotable_init(galaxy_io_desc, ARRAY_SIZE(galaxy_io_desc));
-	msm_allocate_memory_regions();
 	msm_clock_init(msm_clocks_7x01a, msm_num_clocks_7x01a);
 }
 
