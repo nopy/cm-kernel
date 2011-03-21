@@ -353,8 +353,10 @@ int msm_irq_enter_sleep2(bool arm9_wake, int from_idle)
 		/* Clear INT_A9_M2A_5 since requesting sleep triggers it */
 		if (i == (INT_A9_M2A_5 / 32))
 			pending[i] &= ~(1U << (INT_A9_M2A_5 % 32));
-      // Change in original samsung kernel
-      //	pending[i] &= ~((1U << (INT_A9_M2A_5 % 32)) | (1U << INT_A9_M2A_3 /*% 32 */));
+		/* Clear PHONE IRQ */
+		if (i == (INT_A9_M2A_3 / 32))
+			pending[i] &= ~(1U << (INT_A9_M2A_3 % 32));
+
 		any |= pending[i];
 	}
 
