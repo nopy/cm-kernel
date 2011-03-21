@@ -242,6 +242,10 @@ static struct i2c_board_info cam_pm_i2c_device = {
 	I2C_BOARD_INFO("cam_pm_lp8720_i2c", 0x7D),
 };
 
+static struct platform_device galaxy_rfkill = {
+	.name = "galaxy_rfkill",
+	.id = -1,
+};
 
 /* usb */
 #define HSUSB_API_INIT_PHY_PROC	2
@@ -646,6 +650,7 @@ static struct platform_device *devices[] __initdata = {
 
 	&hw3d_device,
 	&galaxy_snd,
+	&galaxy_rfkill,
 
 	/* i2c */
 	&msm_device_i2c,
