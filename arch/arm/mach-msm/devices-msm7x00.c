@@ -325,8 +325,8 @@ static struct resource resources_sdc2[] = {
 		.name	= "status_irq"
 	},
 	{
-		.start	= 11,
-		.end	= 11,
+		.start	= 8,
+		.end	= 8,
 		.flags	= IORESOURCE_DMA,
 	},
 };
@@ -354,8 +354,8 @@ static struct resource resources_sdc3[] = {
 		.name	= "status_irq"
 	},
 	{
-		.start	= 11,
-		.end	= 11,
+		.start	= 8,
+		.end	= 8,
 		.flags	= IORESOURCE_DMA,
 	},
 };
