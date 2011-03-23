@@ -114,7 +114,7 @@ static int rec_status = 0;
 #define I2C_READ(reg,data) if (max9877_i2c_read(reg,data) < 0 ) return -EIO
 
 char max9877_outmod_reg;
-extern int audio_enabled;
+int audio_enabled = 1;
 
 static void headset_on_work(struct work_struct *work)
 {
@@ -325,6 +325,7 @@ static long max9877_ioctl(struct file *filp, unsigned int cmd, unsigned long arg
 
 	spk_vol_mute = hpl_vol_mute = hpr_vol_mute = 0;
 
+	printk("max9877: ioctl: %4x, %4x\n", cmd, arg);
 	switch(cmd) {
 #if ALLOW_USPACE_RW
 	case MAX9877_I2C_IOCTL_W:
