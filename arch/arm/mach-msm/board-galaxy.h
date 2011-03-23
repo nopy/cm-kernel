@@ -123,11 +123,13 @@ struct msm_pmem_setting{
 /* USB */
 #define GPIO_USB_DET			49
 
+/* H2W */
+#define GPIO_SEND_END 			38
+#define GPIO_JACK_S_35			21
 
 #define GPIO_CHK_BOARD_REV 		99
 
 
-#define GPIO_SEND_END 			38
 
 
 
