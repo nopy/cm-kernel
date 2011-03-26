@@ -91,7 +91,7 @@ typedef struct pdp_arg {
 #define MAX_PDP_CONTEXT			10
 
 /* Maximum PDP data length */
-#define MAX_PDP_DATA_LEN		1500
+#define MAX_PDP_DATA_LEN		1550	
 
 /* Maximum PDP packet length including header and start/stop bytes */
 #define MAX_PDP_PACKET_LEN		(MAX_PDP_DATA_LEN + 4 + 2)
@@ -951,10 +951,26 @@ static int vs_read(struct pdp_info *dev, size_t len)
 		return 0;
 	}
 
-	/* pdp data length.. */
-	ret = dpram_read(dpram_filp, pdp_rx_buf, len);
-	if (ret != len) {
-		return ret;
+	if(len > 1500) {
+		unsigned char *prx_buf = kzalloc(len, GFP_ATOMIC);
+
+		if(prx_buf == NULL)
+			return 0;
+		/* pdp data length.. */
+		ret = dpram_read(dpram_filp, prx_buf, len);
+
+		if(ret != len){
+			kfree(prx_buf);
+			return ret;
+		}
+		if (dev->vs_dev.tty == NULL) 
+			printk("vs_read : #1 vs_dev.tty is NULL =====\n");
+		if (ret > 0 && dev->vs_dev.tty != NULL) {
+			ret = tty_insert_flip_string(dev->vs_dev.tty, prx_buf, ret);
+			tty_flip_buffer_push(dev->vs_dev.tty);
+		}
+		printk("RF cal data read. len: %d ret: %d\n", len, ret);
+		kfree(prx_buf);
 	}
 	else {
 
