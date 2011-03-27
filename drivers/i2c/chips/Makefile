@@ -12,6 +12,10 @@
 
 obj-$(CONFIG_SENSORS_MT9T013)	+= mt9t013.o
 obj-$(CONFIG_MAX9877) += max9877.o
+obj-$(CONFIG_GALAXY_LIGHTSENSOR) += lightsensor.o
+obj-$(CONFIG_GP2AP) += gp2ap.o
+obj-$(CONFIG_AKM8973) += akm8973.o
+obj-$(CONFIG_BMA150) += bma150.o
 
 ifeq ($(CONFIG_I2C_DEBUG_CHIP),y)
 EXTRA_CFLAGS += -DDEBUG

@@ -146,8 +146,8 @@ static struct i2c_board_info sensors_i2c_devices[] = {
 		I2C_BOARD_INFO("akm8973", 0x3C >> 1),
 	},
 	{
-		I2C_BOARD_INFO("gp2ap002", 0x88 >> 1),
-		.type = "gp2ap002",
+		I2C_BOARD_INFO("gp2ap", 0x88 >> 1),
+		.type = "gp2ap",
 		.irq = MSM_GPIO_TO_INT(GPIO_PROXIMITY_IRQ),
 	},
 };

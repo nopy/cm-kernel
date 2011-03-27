@@ -14,9 +14,24 @@ config SENSORS_MT9T013
 	 MT9T013 Camera Driver implemented by HTC.
 
 config MAX9877
-  bool "Maxim MAX9877 Amp Subsystem Driver"
-  depends on I2C
-  default n
+	bool "Maxim MAX9877 Amp Subsystem Driver"
+	depends on I2C
+	default n
 
+config GP2AP
+	bool "Sharp GP2AP Proximity Sensor"
+	default n
 
+config GALAXY_LIGHTSENSOR
+	bool "Samsung Galaxy Light Sensor"
+	depends on GP2AP
+	default n
+
+config AKM8973
+	bool "AKM8973 Sensor"
+	default n
+
+config BMA150
+	bool "Bosh BMA150 Sensor"
+	default n
 endmenu
