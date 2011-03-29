@@ -367,7 +367,7 @@ static struct platform_device rndis_device = {
 #endif
 
 static struct usb_mass_storage_platform_data mass_storage_pdata = {
-	.nluns = 1,
+	.nluns = 2,
 	.vendor = "Samsung",
 	.product = "I7500",
 	.release = 0x0100,
