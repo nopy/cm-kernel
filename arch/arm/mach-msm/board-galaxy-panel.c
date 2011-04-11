@@ -1474,28 +1474,19 @@ static int galaxy_mddi_toshiba_client_init(
 {
 	dprintk("%s: entered\n", __func__);
 
+	mutex_lock(&galaxy_backlight_lock);
 	// FIXME: May not be required
 	client_data->auto_hibernate(client_data, 0);
 	// Bridge Wake Up
 	toshiba_bridge_wakeup(client_data);
 	// OLED Wake Up
-	smd_hvga_oled_start_wakeup(client_data);
-	smd_hvga_oled_power_wakeup(client_data);
-	smd_hvga_oled_init_wakeup(client_data);
 
-	// Restore backlight level
-	mutex_lock(&galaxy_backlight_lock);
-	g_client_data = client_data;
-	galaxy_backlight_off = 0;
-	galaxy_set_backlight_level(galaxy_backlight_brightness);
-	mutex_unlock(&galaxy_backlight_lock);
-	
-	smd_hvga_oled_display_on_wakeup(client_data);
 
 	//client_data->remote_write(client_data, GPIOSEL_VWAKEINT, GPIOSEL);
 	//client_data->remote_write(client_data, INTMASK_VWAKEOUT, INTMASK);
 
 	client_data->auto_hibernate(client_data, 1);
+	mutex_unlock(&galaxy_backlight_lock);
 	return 0;
 }
 
@@ -1505,13 +1496,12 @@ static int galaxy_mddi_toshiba_client_uninit(
 {
 	dprintk("%s: entered\n", __func__);
 
+	mutex_lock(&galaxy_backlight_lock);
 	client_data->auto_hibernate(client_data, 0);
 
-	smd_hvga_oled_sleep(client_data);
 	toshiba_bridge_sleep(client_data);
 
 	client_data->auto_hibernate(client_data, 1);
-	mutex_lock(&galaxy_backlight_lock);
 	//galaxy_set_backlight_level(0);
 	galaxy_backlight_off = 1;
 	mutex_unlock(&galaxy_backlight_lock);
@@ -1526,7 +1516,20 @@ static int galaxy_mddi_panel_unblank(
 {
 	int ret = 0;
 	dprintk("%s: entered\n", __func__);
+	// Restore backlight level
+	mutex_lock(&galaxy_backlight_lock);
 
+	smd_hvga_oled_start_wakeup(client_data);
+	smd_hvga_oled_power_wakeup(client_data);
+	smd_hvga_oled_init_wakeup(client_data);
+
+	galaxy_backlight_off = 0;
+	g_client_data = client_data;
+	galaxy_set_backlight_level(galaxy_backlight_brightness);
+
+	smd_hvga_oled_display_on_wakeup(client_data);
+
+	mutex_unlock(&galaxy_backlight_lock);
 	return ret;
 }
 
@@ -1537,6 +1540,9 @@ static int galaxy_mddi_panel_blank(
 	int ret = 0;
 	dprintk("%s: entered\n", __func__);
 
+	mutex_lock(&galaxy_backlight_lock);
+	smd_hvga_oled_sleep(client_data);
+	mutex_unlock(&galaxy_backlight_lock);
 	return ret;
 }
 
