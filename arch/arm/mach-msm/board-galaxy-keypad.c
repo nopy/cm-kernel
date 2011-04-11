@@ -65,11 +65,7 @@ unsigned short keymap[ARRAY_SIZE(col_gpios) * ARRAY_SIZE(row_gpios)] = {
 	[KEYMAP_INDEX(3, 0)] = KEY_DOWN,		// CAPELA : DOWN
 	[KEYMAP_INDEX(3, 1)] = KEY_BACK,		// CAPELA : MENU	-> KEYMAP fault : BACK
 	[KEYMAP_INDEX(3, 2)] = KEY_SEND,		// CAPELA : SEND
-#if defined(CONFIG_MACH_GALAXY_REV05)
 	[KEYMAP_INDEX(3, 3)] = KEY_SCREENLOCK,	// CAPELA : 152 hold added ORION 0.5 (09. 04. 17)
-#else
-	[KEYMAP_INDEX(3, 3)] = KEY_RESERVED,	// CAPELA : X		-> 090417 : hold added CAPELA 0.5
-#endif
 };
 
 static const unsigned short virtual_keys[] = {
