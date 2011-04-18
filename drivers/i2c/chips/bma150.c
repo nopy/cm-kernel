@@ -78,7 +78,7 @@
 #define BMA150_IOC_MAXNR			48
 
 
-#define DEBUG 1
+#define DEBUG 0
 
 static unsigned short normal_i2c[] = { I2C_CLIENT_END };
 
