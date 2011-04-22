@@ -690,7 +690,7 @@ static void do_read_data(struct work_struct *work)
 packet_complete:
 	spin_lock_irqsave(&ept->read_q_lock, flags);
 	if (ept->flags & MSM_RPC_ENABLE_RECEIVE) {
-		wake_lock(&ept->read_q_wake_lock);
+		wake_lock_timeout(&ept->read_q_wake_lock, HZ / 2);
 		list_add_tail(&pkt->list, &ept->read_q);
 		wake_up(&ept->wait_q);
 	} else {
