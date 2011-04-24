@@ -340,14 +340,33 @@ static char *usb_functions_all[] = {
 static struct android_usb_product usb_products[] = {
 	{
 		.product_id	= 0x6640,
-		.num_functions	= ARRAY_SIZE(usb_functions_adb_ums_acm),
-		.functions	= usb_functions_adb_ums_acm,
-	},
-	{
-		.product_id	= 0x6601,
 		.num_functions	= ARRAY_SIZE(usb_functions_ums_adb),
 		.functions	= usb_functions_ums_adb,
 	},
+	{
+		.product_id	= 0x6603,
+		.num_functions	= ARRAY_SIZE(usb_functions_ums),
+		.functions	= usb_functions_ums,
+	},
+#ifdef CONFIG_USB_ANDROID_RNDIS
+	{
+		.product_id	= 0x6605,
+		.num_functions	= ARRAY_SIZE(usb_functions_rndis),
+		.functions	= usb_functions_rndis,
+	},
+	{
+		.product_id	= 0x6606,
+		.num_functions	= ARRAY_SIZE(usb_functions_rndis_adb),
+		.functions	= usb_functions_rndis_adb,
+	},
+#endif
+#ifdef CONFIG_USB_ANDROID_ACM
+	{
+		.product_id	= 0x6603,
+		.num_functions	= ARRAY_SIZE(usb_functions_adb_ums_acm),
+		.functions	= usb_functions_adb_ums_acm,
+	},
+#endif
 };
 
 #ifdef CONFIG_USB_ANDROID_RNDIS
