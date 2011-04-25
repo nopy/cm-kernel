@@ -32,19 +32,12 @@
 #include <linux/irq.h>
 #include <asm/irq.h>
 
-
 #include "proc_comm.h"
+#include "board-galaxy-fsa9480.h"
 
-static struct wake_lock vbus_wake_lock;
-//extern void lightsensor_low_battery_flag_set (int );
-//extern void lcd_low_battery_flag_set_for_lightsensor (int );
-
-
-#define TRACE_BATT 1
+#define TRACE_BATT 0
 
 //#define BATT_TABLE_CALL_BASIS // battery table applied by call connected level base
-
-//#define BATT_LEVEL_UPDATE_MASTER  // Added by Anubis_0709
 
 #if TRACE_BATT
 #define BATT(x...) printk(KERN_INFO "[BATT] " x)
@@ -52,8 +45,8 @@ static struct wake_lock vbus_wake_lock;
 #define BATT(x...) do {} while (0)
 #endif
 
-#define BATT_LOG(en, x...) if(en) printk(KERN_INFO "[BATT] " x)
-#define BATT_DBG(en, x...) if(en>=2) printk(KERN_INFO "[BATT] " x)
+#define BATT_LOG(en, x...) if(en>=2) printk(KERN_INFO "[BATT] " x)
+#define BATT_DBG(en, x...) if(en) printk(KERN_INFO "[BATT] " x)
 
 /* rpc related */
 #define APP_BATT_PDEV_NAME         "rs3000008d:00010000"
@@ -198,12 +191,6 @@ static char *supply_list[] = {
 static struct workqueue_struct *batt_level_wq;
 
 static void batt_level_work_func(struct work_struct *work);
-
-#if defined ( BATT_LEVEL_UPDATE_MASTER )  // feature is added by Anubis_0709, why do you define this feature??
-void batt_registertimer(struct timer_list* ptimer, unsigned long timeover );
-
-void batt_timeover(unsigned long arg );
-#endif
 
 static ssize_t battery_show_property(struct device *dev,
                                           struct device_attribute *attr,
@@ -902,10 +889,7 @@ static int rpc_set_using_dev(int using_dev)
 int battery_status_update(u32 curr_level)
 {
         int notify;
-//============= hojung.choi ===================
-		int low_battery_flag=0;
-		static int previous_low_battery_flag=-1;
-//============= end ===========================
+
         if (!battery_initial)
                 return 0;
 
@@ -920,18 +904,6 @@ int battery_status_update(u32 curr_level)
 		batt_info.rep.level = 100;
 	}
 #endif
-//============= hojung.choi ===================
-		if( curr_level <= 10 ){
-			low_battery_flag=( !batt_info.rep.charging_source );
-			}
-		
-		if( previous_low_battery_flag != low_battery_flag )
-		{
-			//lightsensor_low_battery_flag_set( low_battery_flag );
-			//lcd_low_battery_flag_set_for_lightsensor( low_battery_flag );
-			previous_low_battery_flag = low_battery_flag;
-		}
-//============= end ===========================
 
 // KTH
 // TOUCH DEVICE DIE SOMETIMES. SO TOUCH_EN(16) ADDED
@@ -944,47 +916,40 @@ int battery_status_update(u32 curr_level)
         return 0;
 }
 
-int current_cable; // ANUBIS_TEST
-extern int fsa_suspended;
-
 int cable_status_update(int status)
 {
+	printk("cable_status_update: enter\n");
         int rc = 0;
         unsigned source;
-	unsigned char int1, int2, dtype;
 
         if (!battery_initial)
                 return 0;
         
-	if( fsa_init_done&& !fsa_suspended){
-		mdelay(200); // old charger needs more delay to detect cable type
-		fsa9480_i2c_read_reg(FSA_INT1, &int1);
-		mdelay(10);
-		fsa9480_i2c_read_reg(FSA_DTYPE1, &dtype);
-		BATT_LOG(batt_info.log_en,"FSA9480 i2c read 0x03 int1 0x%x, 0x0A dtype 0x%x\n", int1, dtype);
-		if(dtype==0x00){
-			status = CHARGER_BATTERY;
+	switch (status) {
+	case STATUS_BATTERY:
+		BATT_LOG(batt_info.log_en, "cable status STATUS_BATTERY\n");
+		status = CHARGER_BATTERY;
 
-			batt_info.charger_time_out = 0;
-			charger_off = 0;
-			batt_info.rep.charging_enabled = 1; 
-			}
-		else if (dtype==0x04){
-			status = CHARGER_USB;
-			}
-		else if (dtype==0x40){
-			status = CHARGER_AC;
-			}
-		else if (dtype==0x10){ // old charger (ver IV)
-			status = CHARGER_AC;
-			}
-		else 
-			status = CHARGER_BATTERY;
-		current_cable = status;
+		batt_info.charger_time_out = 0;
+		charger_off = 0;
+		batt_info.rep.charging_enabled = 1; 
+		break;
+	case STATUS_AC:
+	case STATUS_AC2:
+		BATT_LOG(batt_info.log_en, "cable status STATUS_AC[2]\n");
+		status = CHARGER_AC;
+		break;
+	case STATUS_USB:
+		BATT_LOG(batt_info.log_en, "cable status STATUS_USB\n");
+		status = CHARGER_USB;
+		break;
+	default:
+		BATT_LOG(batt_info.log_en, "cable status unknown, defaulting to BATTERY\n");
+		status = CHARGER_BATTERY;
 	}
 
         mutex_lock(&batt_info.lock);
-        switch(current_cable) {
+        switch(status) {
         case CHARGER_BATTERY:
                 BATT_LOG(batt_info.log_en,"cable NOT PRESENT\n");
                 batt_info.rep.charging_source = CHARGER_BATTERY;
@@ -1005,17 +970,6 @@ int cable_status_update(int status)
         source = batt_info.rep.charging_source;
         mutex_unlock(&batt_info.lock);
 
-	msm_hsusb_set_vbus_state(source == CHARGER_USB);
-
-        if (source == CHARGER_USB && !fsa_suspended) { 
-		wake_lock(&vbus_wake_lock);
-        } else {
-                /* give userspace some time to see the uevent and update
-                 * LED state or whatnot...
-                 */
-		wake_lock_timeout(&vbus_wake_lock, HZ / 2);
-        }
-
         /* if the power source changes, all power supplies may change state */
         power_supply_changed(&power_supplies[CHARGER_BATTERY]);
         power_supply_changed(&power_supplies[CHARGER_USB]);
@@ -1023,6 +977,7 @@ int cable_status_update(int status)
 
         return rc;
 }
+EXPORT_SYMBOL(cable_status_update);
 
 #ifndef max
 #define max(a,b) (((a)>(b)) ? (a) : (b))
@@ -1035,7 +990,7 @@ int cable_status_update(int status)
 unsigned int avg_vbatt_adc(int last_vbatt_adc)
 {
 	unsigned int result = 0, min_adc, max_adc;
-	int i, j;
+	int i;
 
 	for(i=0; i<12; i++)
 	{
@@ -1071,7 +1026,7 @@ unsigned int avg_vbatt_adc(int last_vbatt_adc)
 
 unsigned int avg_therm_adc(int last_therm_adc)
 {
-	unsigned int result = 0, min_adc, max_adc;
+	unsigned int result = 0;
 	int i;
 
 	for(i=0; i<3; i++)
@@ -1125,7 +1080,6 @@ static int get_batt_level(struct battery_level_reply *buffer)
 	static int initial_skip = 0;
 	static int level_change_cnt = 0;
 	int level_change_threshold;
-	static int init_vbatt_adc = 0;
 
 	if (buffer == NULL) 
 		return -EINVAL;
@@ -1277,17 +1231,15 @@ static int get_batt_level(struct battery_level_reply *buffer)
 		  
 	batt_info.batt_adc_comp = buffer->batt_level;
 	batt_info.batt_voltage_comp = battery_get_voltage(batt_info.batt_adc_comp);
-       BATT_LOG(batt_info.log_en,"handle_battery_call : dem_battery_update: vbatt_adc=%d, level=%d, level_change_cnt=%d\n",current_vbatt_adc, scaled_val, level_change_cnt);
+	BATT_LOG(batt_info.log_en,"handle_battery_call : dem_battery_update: vbatt_adc=%d, level=%d, level_change_cnt=%d\n",current_vbatt_adc, scaled_val, level_change_cnt);
 	BATT_LOG(batt_info.log_en,"Testmode therm_adc=%d, vbatt_adc=%d, level=%d mV\n",batt_info.rep.batt_therm, batt_info.batt_adc_comp, batt_info.batt_voltage_comp);
-	cable_status_update(batt_info.rep.charging_source);
+	//cable_status_update(get_cable_status());
 
 	return 0;
 }
 
 static int get_batt_info(struct battery_info_reply *buffer)
 {
-		int received_level;
-
         struct rpc_request_hdr req;
         
         struct get_batt_info_rep {
@@ -1296,7 +1248,7 @@ static int get_batt_info(struct battery_info_reply *buffer)
         } rep;
         
         int rc;
-	int rc2, received_adc, rc3;
+	int rc2, rc3;
 
 
         if (buffer == NULL) 
@@ -1435,7 +1387,6 @@ static int power_get_property(struct power_supply *psy,
         return 0;
 }
 
-static charger_type_t prev_charger=0; 
 static int battery_get_charging_status(void)
 {
         u32 level;
@@ -1596,7 +1547,7 @@ static ssize_t battery_set_delta(struct device *dev,
                                      struct device_attribute *attr,
                                      const char *buf, size_t count)
 {
-        int rc;
+        int rc = 0;
         unsigned long delta = 0;
         
         delta = simple_strtoul(buf, NULL, 10);
@@ -1793,7 +1744,6 @@ static ssize_t battery_store_property(struct device *dev,
 	ssize_t ret = -EINVAL;
 	char *after;
 	unsigned long state = simple_strtoul(buf, &after, 10);
-	size_t count = after - buf;
 	int i = 0;
 	const ptrdiff_t offset = attr - battery_attrs;
 
@@ -1866,23 +1816,6 @@ static ssize_t battery_store_property(struct device *dev,
 
 }
 
-#if defined (BATT_LEVEL_UPDATE_MASTER ) // feature is added by Anubis_0709
-void batt_registertimer(struct timer_list* ptimer, unsigned long timeover )
-{
-	init_timer( ptimer );
-	ptimer->expires = get_jiffies_64() + timeover;
-	ptimer->data = NULL;
-	ptimer->function = batt_timeover;
-	add_timer( ptimer );
-}
-
-void batt_timeover(unsigned long arg )
-{
-	queue_work(batt_level_wq , &batt_level_info.work );
- 	batt_registertimer( &batt_level_info.timer, BATT_CHECK_INTERVAL );	
-}
-#endif
-
 static void batt_level_work_func(struct work_struct *work)
 {
         mutex_lock(&batt_level_info.rpc_lock);
@@ -1935,7 +1868,7 @@ static int battery_probe(struct platform_device *pdev)
         if (get_batt_info(&batt_info.rep) < 0)
                 printk(KERN_ERR "%s: get info failed\n", __FUNCTION__);
 
-        cable_status_update(batt_info.rep.charging_source);
+        //cable_status_update(batt_info.rep.charging_source);
         battery_charging_ctrl(batt_info.rep.charging_enabled ?
                               ENABLE_SLOW_CHG : DISABLE);
 
@@ -1960,10 +1893,6 @@ static int battery_probe(struct platform_device *pdev)
 	batt_level_wq= create_singlethread_workqueue("batt_level_wq");
 	INIT_WORK(&batt_level_info.work, batt_level_work_func);
 
-#if defined ( BATT_LEVEL_UPDATE_MASTER )
-	batt_registertimer( &batt_level_info.timer, BATT_CHECK_INTERVAL );	
-#endif
-
 // <<-- Added by Anubix_0709
 	r = request_irq(INT_A9_M2A_2, batt_level_update_isr, IRQF_TRIGGER_RISING, "batt_level_update", NULL);
 
@@ -1980,9 +1909,10 @@ static int battery_probe(struct platform_device *pdev)
         return 0;
 }
 
-int battery_suspend(void)
+int battery_suspend(struct platform_device *pdev,
+                                        pm_message_t state)
 {
-    int ret, i; 
+    int i; 
 	for(i=0; i<12; i++)
 	{
 		vbatt_adc_table[i] = 0;
@@ -1992,23 +1922,9 @@ int battery_suspend(void)
     return 0;
 }
 
-int battery_resume(void)
-{
-    int ret, i; 
-/*	for(i=0; i<3; i++)
-	{
-		vbatt_adc_table[i] = 0;
-		therm_adc_table[i] = 0;
-	}
-*/
-    return 0;
-}
-
-
 static struct platform_driver battery_driver = {
         .probe  = battery_probe,
 	.suspend	= battery_suspend,
-	.resume	= battery_resume,
         .driver = {
                 .name   = APP_BATT_PDEV_NAME,
                 .owner  = THIS_MODULE,
@@ -2043,7 +1959,6 @@ static int handle_battery_call(struct msm_rpc_server *server,
 		static int initial_skip = 0;
 		static int level_change_cnt = 0;
 		int level_change_threshold;
-		static int init_vbatt_adc = 0;
 
         switch (req->procedure) {
         case RPC_BATT_MTOA_NULL:
@@ -2053,7 +1968,6 @@ static int handle_battery_call(struct msm_rpc_server *server,
                 struct rpc_batt_mtoa_set_charging_args *args;
                 args = (struct rpc_batt_mtoa_set_charging_args *)(req + 1);
                 args->enable = be32_to_cpu(args->enable);
-//                battery_set_charging(args->enable);
 		set_charging_status(args->enable);
 		BATT("RPC_BATT_MTOA_SET_CHARGING_PROC %d\n", args->enable);
                 return 0;
@@ -2064,7 +1978,7 @@ static int handle_battery_call(struct msm_rpc_server *server,
                 args->status = be32_to_cpu(args->status);
 		BATT_LOG(batt_info.log_en,"handle_battery_call : cable_status_update: status=%d\n",args->status);
 
-                cable_status_update(args->status);
+                cable_status_update(get_cable_status());
                 return 0;
         }
         case RPC_BATT_MTOA_LEVEL_UPDATE_PROC: {
@@ -2225,7 +2139,7 @@ static int handle_battery_call(struct msm_rpc_server *server,
 		  batt_info.batt_voltage_comp = battery_get_voltage(batt_info.batt_adc_comp);
                 BATT_LOG(batt_info.log_en,"handle_battery_call : dem_battery_update: vbatt_adc=%d, level=%d, level_change_cnt=%d\n",current_vbatt_adc, scaled_val, level_change_cnt);
 		BATT_LOG(batt_info.log_en,"Testmode therm_adc=%d, vbatt_adc=%d, level=%d mV\n",batt_info.rep.batt_therm, batt_info.batt_adc_comp, batt_info.batt_voltage_comp);
-		cable_status_update(batt_info.rep.charging_source);
+		//cable_status_update(get_cable_status());
 
                 return 0;
         }
@@ -2244,8 +2158,6 @@ static struct msm_rpc_server battery_server = {
 
 static int __init battery_init(void)
 {
-	int rc;
-	wake_lock_init(&vbus_wake_lock, WAKE_LOCK_SUSPEND, "vbus_present");
 	mutex_init(&batt_info.lock);
 	mutex_init(&batt_info.rpc_lock);
 	mutex_init(&batt_level_info.lock);

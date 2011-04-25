@@ -44,6 +44,8 @@
 
 #include <mach/msm_iomap.h>
 
+#include "board-galaxy.h"
+
 #include <../../../drivers/staging/android/timed_gpio.h>
 #include <../../../drivers/staging/android/timed_output.h>
 
@@ -197,13 +199,13 @@ static enum hrtimer_restart vibetonz_timer_func(struct hrtimer *timer)
 //		if((r.tv.sec > 0) || (r.tv.nsec > 0))
 		if(!remain) {
 			clk_disable(android_vib_clk);
-			gpio_direction_output(101,0);
+			gpio_direction_output(GPIO_VIBRATOR,0);
 			is_vib_on = 0;
 		} 
 	} else {
 		printk("hrtimer end!\n");
 		clk_disable(android_vib_clk);
-		gpio_direction_output(101,0);
+		gpio_direction_output(GPIO_VIBRATOR,0);
 		is_vib_on = 0;
 	}
 //	clk_disable(android_vib_clk);
@@ -268,7 +270,7 @@ static void to_vibrator_enable(struct timed_output_dev *sdev, int timeout)
 	if(!timeout) {
 		if(is_vib_on) {
 			clk_disable(android_vib_clk);
-			gpio_direction_output(101, 0);
+			gpio_direction_output(GPIO_VIBRATOR, 0);
 			is_vib_on = 0;
 		}
 	} else {
@@ -290,7 +292,7 @@ static void to_vibrator_enable(struct timed_output_dev *sdev, int timeout)
 				current_pwm = vibrator_pwm;
 			}
 		}
-		gpio_direction_output(101,1);
+		gpio_direction_output(GPIO_VIBRATOR,1);
 		clk_enable(android_vib_clk);
 		hrtimer_start(&android_timer,ktime_set(timeout / 1000, (timeout % 1000) * 1000000),
 					HRTIMER_MODE_REL);
@@ -399,6 +401,9 @@ static int __init vibetonz_init(void)
 	current_pwm = vibrator_pwm;
 	vibe_set_pwm_freq(vibrator_pwm);
 
+	/* GPIO */
+	nRet = gpio_request(GPIO_VIBRATOR, "vibrator");
+
 	printk("android viberation initialize OK(base pwm : 180)\n");
 
 	return timed_output_dev_register(&pmic_vibrator);
@@ -412,7 +417,7 @@ static void __exit vibetonz_exit(void)
 	/* vibrator clock disable */
 	if (is_vib_on) {
 		clk_disable(android_vib_clk);
-		gpio_direction_output(101,0);
+		gpio_direction_output(GPIO_VIBRATOR,0);
 	}
 
 	android_vib_power(0);

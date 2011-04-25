@@ -339,8 +339,10 @@ static inline int WRITE_TO_DPRAM_VERIFY(u32 dest, void *src, int size)
 	while (cnt--) {
 		_memcpy((void *)(SmemBase + dest), (void *)src, size);
 
+#if 0
 		if (!_memcmp((u8 *)(SmemBase + dest), (u8 *)src, size))
 			return 0;
+#endif
 	}
 
 	return -1;
@@ -353,8 +355,10 @@ static inline int READ_FROM_DPRAM_VERIFY(void *dest, u32 src, int size)
 	while (cnt--) {
 		_memcpy((void *)dest, (void *)(SmemBase + src), size);
 
+#if 0
 		if (!_memcmp((u8 *)dest, (u8 *)(SmemBase + src), size))
 			return 0;
+#endif
 	}
 
 	return -1;

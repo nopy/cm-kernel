@@ -745,6 +745,8 @@ static void __init galaxy_init(void)
 
 	init_keypad();
 
+	msm_add_usb_devices();
+
 	/* register i2c devices */
 	/* each pair of SCL and SDA lines is one bus */
 	i2c_register_board_info(I2C_BUS_NUM_SENSORS, sensors_i2c_devices, ARRAY_SIZE(sensors_i2c_devices));
@@ -755,10 +757,9 @@ static void __init galaxy_init(void)
 
 	galaxy_init_mmc();
 #ifdef CONFIG_SERIAL_MSM_HS
-  msm_device_uart_dm1.dev.platform_data = &msm_uart_dm1_pdata;
+	msm_device_uart_dm1.dev.platform_data = &msm_uart_dm1_pdata;
 #endif
 
-	msm_add_usb_devices();
 	//msm_fb_add_devices();
 
 	msm_device_uart_dm1.dev.platform_data = NULL;
