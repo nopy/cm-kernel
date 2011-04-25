@@ -127,6 +127,9 @@ struct msm_pmem_setting{
 #define GPIO_SEND_END 			38
 #define GPIO_JACK_S_35			21
 
+/* Vibrator */
+#define GPIO_VIBRATOR			101
+
 #define GPIO_CHK_BOARD_REV 		99
 
 
