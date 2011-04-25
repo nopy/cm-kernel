@@ -201,39 +201,10 @@ static int wifi_status_register(void (*callback)(int card_present, void *dev_id)
 	return 0;
 }
 
-static struct sdio_embedded_func wifi_func[] = {
-         {SDIO_CLASS_WLAN, 64},
-	 {SDIO_CLASS_WLAN, 64},
-};
-
-static struct embedded_sdio_data wifi_emb_data = {
-        .cis    = {
-                .vendor         = 0x02d0,
-                .device         = 0x4c6,
-                .blksize        = 64,
-		/*.max_dtr        = 11000000,*/
-                .max_dtr        =   48000000,
-        },
-        .cccr   = {
-		//.sdio_vsn	= 2,
-		.multi_block	= 1,
-		//.low_speed	= 0,
-                .low_speed      = 1,
-		//.wide_bus	= 0,
-                .wide_bus       = 1,
-		.high_power	= 1,
-		.high_speed	= 1,
-                //.high_speed     = 0,
-        },
-        .funcs  = &wifi_func,
-        .num_funcs = 2,
-};
-
 static struct mmc_platform_data wifi_data = {
 	.ocr_mask	= MMC_VDD_28_29,
 	.status		= wifi_status,
 	.register_status_notify	= wifi_status_register,
-	//.embedded_sdio	= &wifi_emb_data,
 	.built_in = 1,
 };
 
@@ -251,8 +222,6 @@ int galaxy_wifi_set_carddetect(int val)
 	return 0;
 }
 EXPORT_SYMBOL(galaxy_wifi_set_carddetect);
-
-static int wifi_power_state;
 
 
 #define BCM4325_BT 0
@@ -297,8 +266,6 @@ int galaxy_wifi_reset(int on) {
 
 void __init galaxy_init_mmc(void)
 {
-	int rc = 0;
-
 	vreg_mmc = vreg_get(NULL, "mmc");
 	if (IS_ERR(vreg_mmc)) {
 		printk(KERN_ERR "%s: vreg get failed (%ld)\n", __func__, PTR_ERR(vreg_mmc));
