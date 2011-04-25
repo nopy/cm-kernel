@@ -1522,13 +1522,13 @@ static int galaxy_mddi_panel_unblank(
 	smd_hvga_oled_start_wakeup(client_data);
 	smd_hvga_oled_power_wakeup(client_data);
 	smd_hvga_oled_init_wakeup(client_data);
+	smd_hvga_oled_display_on_wakeup(client_data);
 
 	galaxy_backlight_off = 0;
 	g_client_data = client_data;
 	galaxy_set_backlight_level(galaxy_backlight_brightness);
 
-	smd_hvga_oled_display_on_wakeup(client_data);
-
+	mdelay(100);
 	mutex_unlock(&galaxy_backlight_lock);
 	return ret;
 }
