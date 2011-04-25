@@ -30,7 +30,7 @@
 #include "board-galaxy.h"
 #include "devices.h"
 
-#define _DEBUG 0
+//#define _DEBUG 0
 #ifdef _DEBUG
 #define dprintk(s, args...) printk("galaxy_panel: %s:%d - " s, __func__, __LINE__,  ##args)
 #else
