@@ -19,12 +19,15 @@
 #include <linux/miscdevice.h>
 #include <linux/delay.h>
 #include <linux/input.h>
+#include <linux/wakelock.h>
+#include <mach/board.h>
 #include <mach/vreg.h>
 #include <asm/io.h>
 
 #include <linux/uaccess.h>
 
 #include "board-galaxy.h"
+#include "board-galaxy-fsa9480.h"
 
 #define ALLOW_USPACE_RW		1
 
@@ -59,6 +62,12 @@ static struct i2c_client *pclient;
 #endif
 
 DECLARE_MUTEX(fsa_sem);
+static struct wake_lock vbus_wake_lock;
+static int cable_status = STATUS_BATTERY;
+
+int get_cable_status(void) {
+	return cable_status;
+}
 
 struct fsa9480_data {
 	struct work_struct work;
@@ -198,15 +207,35 @@ static int fsa9480_init_client(struct i2c_client *client)
 	return 0;
 }
 
-extern int fsa_init_done;
-int fsa_suspended = 0;
 
-extern irqreturn_t batt_level_update_isr(int, void *);
+extern int cable_status_update(int status);
+static void update_cable_state(void) {
+	unsigned char dtype;
+	bool usb_online;
+
+	fsa9480_i2c_read_reg(FSA9480_DEVICE_TYPE1_ADD, &dtype);
+	printk("fsa9480: status = %2x\n", dtype);
+
+	cable_status = dtype;
+
+	// set USB vbus accordingly
+	usb_online = dtype == STATUS_USB;
+	msm_hsusb_set_vbus_state(usb_online);
+
+	if (usb_online)
+		wake_lock(&vbus_wake_lock);
+	else
+		wake_lock_timeout(&vbus_wake_lock, HZ * 5);
+
+	//FIXME use callback in device pdata
+	cable_status_update(cable_status);
+}
+
 
 static irqreturn_t usb_switch_interrupt_handler(int irq, void *data)
 {
-	unsigned char ctrl; 
-	int status;
+	unsigned char ctrl;
+	int status ;
 
 	printk("fsa9480: IRQ FIRED\n");
 	fsa9480_read_irq(&status);
@@ -214,10 +243,9 @@ static irqreturn_t usb_switch_interrupt_handler(int irq, void *data)
 	ctrl &= ~CON_INT_MASK;
 	fsa9480_i2c_write_reg(FSA9480_REG_CTRL, ctrl);
 
-	//FIXME: cable status need to be handle here
-	batt_level_update_isr(irq, data);
-
-	printk("fsa9480: status = %d\n", status);
+	// delay for old charger ?
+	mdelay(200);
+	update_cable_state();
 
 	return IRQ_HANDLED;
 }
@@ -254,8 +282,6 @@ static int fsa9480_probe(struct i2c_client *client, const struct i2c_device_id *
 	fsa9480_i2c_write_reg(FSA9480_REG_INT1_MASK, 0xfc);
 	fsa9480_i2c_write_reg(FSA9480_REG_INT2_MASK, 0x1f);
 
-	fsa_init_done = 1;
-
 	ret = gpio_request(GPIO_USB_DET, "usb_switch");
 	if (ret < 0)
 		goto err_request_usb_det_gpio;
@@ -278,6 +304,10 @@ static int fsa9480_probe(struct i2c_client *client, const struct i2c_device_id *
 		printk("fsa9480: error setting irq wake\n");
 
 	DBG("fsa9480 : request irq ok");
+
+	wake_lock_init(&vbus_wake_lock, WAKE_LOCK_SUSPEND, "vbus_present");
+
+	update_cable_state();
 
 	return 0;
 	
@@ -310,7 +340,6 @@ static int fsa9480_remove(struct i2c_client *client)
 static int fsa9480_suspend(struct i2c_client *client, pm_message_t mesg)
 {
 	int ret;
-	fsa_suspended = 1;
 	ret = set_irq_wake(IRQ_USB_DET, 1);
 	if (ret < 0)
 		printk("fsa9480: error setting irq wake to 1\n");
@@ -320,7 +349,6 @@ static int fsa9480_suspend(struct i2c_client *client, pm_message_t mesg)
 static int fsa9480_resume(struct i2c_client *client)
 {
 	int ret;
-	fsa_suspended = 0;
 	ret = set_irq_wake(IRQ_USB_DET, 0);
 	if (ret < 0)
 		printk("fsa9480: error setting irq wake to 0\n");
