@@ -101,8 +101,4 @@ struct max9877_init {
 #endif
 #endif
 
-
-int max9877_suspend(void);
-int max9877_resume(void);
-
 int max9877_gpio_recording_start(int state);
