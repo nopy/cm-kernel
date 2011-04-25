@@ -1231,11 +1231,12 @@ static void galaxy_process_mddi_table(
 				size_t count)
 {
 	int i;
+	uint32_t reg, val_len;
 	
 	for(i = 0; i < count; i++) 
 	{
-		uint32_t reg = table[i].reg;
-		uint32_t val_len = table[i].val_len;
+		reg = table[i].reg;
+		val_len = table[i].val_len;
 
 		if (reg == 0)
 			udelay(val_len);
@@ -1250,8 +1251,8 @@ static void galaxy_process_mddi_table(
 				uint32_t value = table[i].value[0];
 				client_data->remote_write(client_data, value, reg);
 			} else {
-				printk("galaxy_process_mddi_table: multiple write on reg(%x)\n", reg);
 				uint8_t* value = (uint8_t*)table[i].value;
+				printk("galaxy_process_mddi_table: multiple write on reg(%x)\n", reg);
 				client_data->remote_write_vals(client_data, value, reg, val_len);
 			}
 		}
@@ -1427,18 +1428,17 @@ static void galaxy_set_backlight_level(uint8_t level)
 	}
 }
 
-static int galaxy_brightness_set(struct led_classdev *led_cdev, enum led_brightness value)
+static void galaxy_brightness_set(struct led_classdev *led_cdev, enum led_brightness brightness)
 {
-	dprintk("%s: value %d\n", __func__, value);
-	if (value>=0  && value<=MAX_BACKLIGHT_BRIGHTNESS)
+	dprintk("%s: brightness %d\n", __func__, brightness);
+	if (brightness>=0  && brightness<=MAX_BACKLIGHT_BRIGHTNESS)
 	{
 		mutex_lock(&galaxy_backlight_lock);
-		galaxy_backlight_brightness = value;
+		galaxy_backlight_brightness = brightness;
 		if (galaxy_backlight_brightness)
 			galaxy_set_backlight_level(galaxy_backlight_brightness);
 		mutex_unlock(&galaxy_backlight_lock);
-	} else
-		return -EINVAL;
+	}
 }
 
 static void galaxy_mddi_power_client(struct msm_mddi_client_data *client_data,
@@ -1557,7 +1557,7 @@ static struct led_classdev galaxy_backlight_led = {
 	.brightness_set = galaxy_brightness_set,
 };
 
-static int __init galaxy_backlight_probe(struct platform_device *pdev)
+static int galaxy_backlight_probe(struct platform_device *pdev)
 {
 	return led_classdev_register(&pdev->dev, &galaxy_backlight_led);
 }
@@ -1619,7 +1619,7 @@ static struct msm_mddi_platform_data mddi_pdata = {
 	},
 };
 
-int __init galaxy_init_panel(void) {
+static int __init galaxy_init_panel(void) {
 	int rc = -1;
 
 	/* checking board as soon as possible */
