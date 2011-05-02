@@ -1431,7 +1431,7 @@ static void galaxy_set_backlight_level(uint8_t level)
 static void galaxy_brightness_set(struct led_classdev *led_cdev, enum led_brightness brightness)
 {
 	dprintk("%s: brightness %d\n", __func__, brightness);
-	if (brightness>=0  && brightness<=MAX_BACKLIGHT_BRIGHTNESS)
+	if (!galaxy_backlight_off && brightness >= 0  && brightness <= MAX_BACKLIGHT_BRIGHTNESS)
 	{
 		mutex_lock(&galaxy_backlight_lock);
 		galaxy_backlight_brightness = brightness;
@@ -1528,7 +1528,7 @@ static int galaxy_mddi_panel_unblank(
 	g_client_data = client_data;
 	galaxy_set_backlight_level(galaxy_backlight_brightness);
 
-	mdelay(100);
+	mdelay(250);
 	mutex_unlock(&galaxy_backlight_lock);
 	return ret;
 }
