@@ -93,3 +93,8 @@ config S5K3H1GX
 	---help---
 	  Samsung 8M 3H1 MIPI AF Sensor
 
+config SENSOR_M4MO
+    bool "M4MO ISP (YUV 422, 5M)"
+    ---help---
+      FUJITSU ISP + SAMSUNG LSI SENSOR
+

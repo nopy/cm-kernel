@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.35.10
-# Wed May 11 22:58:56 2011
+# Mon May  2 12:30:07 2011
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -1309,7 +1309,7 @@ CONFIG_MEDIA_SUPPORT=y
 #
 CONFIG_MSM_CAMERA=y
 # CONFIG_720P_CAMERA is not set
-# CONFIG_MSM_CAMERA_DEBUG is not set
+CONFIG_MSM_CAMERA_DEBUG=y
 
 #
 # Camera Sensor Selection
@@ -1323,6 +1323,7 @@ CONFIG_MT9T013=y
 # CONFIG_OV8810 is not set
 # CONFIG_OV9665 is not set
 # CONFIG_S5K3H1GX is not set
+CONFIG_SENSOR_M4MO=y
 CONFIG_DAB=y
 
 #

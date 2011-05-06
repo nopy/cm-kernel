@@ -9,19 +9,228 @@
 #include <asm/sizes.h>
 #include <linux/ioctl.h>
 
+enum cfg_cmd_type_old {
+	CMD_GENERAL_OLD,
+	CMD_AXI_CFG_OUT1_OLD,
+	CMD_AXI_CFG_SNAP_O1_AND_O2_OLD,
+	CMD_AXI_CFG_OUT2_OLD,
+	CMD_PICT_T_AXI_CFG_OLD,
+	CMD_PICT_M_AXI_CFG_OLD,
+	CMD_RAW_PICT_AXI_CFG_OLD,
+	CMD_STATS_AXI_CFG_OLD,
+	CMD_STATS_AF_AXI_CFG_OLD,
+	CMD_FRAME_BUF_RELEASE_OLD,
+	CMD_PREV_BUF_CFG_OLD,
+	CMD_SNAP_BUF_RELEASE_OLD,
+	CMD_SNAP_BUF_CFG_OLD,
+	CMD_STATS_DISABLE_OLD,
+	CMD_STATS_ENABLE_OLD,
+	CMD_STATS_AF_ENABLE_OLD,
+	CMD_STATS_BUF_RELEASE_OLD,
+	CMD_STATS_AF_BUF_RELEASE_OLD,
+	UPDATE_STATS_INVALID_OLD
+};
+
+/* vfe config command: config command(from config thread)*/
+struct msm_vfe_cfg_cmd {
+	enum cfg_cmd_type_old cmd_type;
+	uint16_t length;
+	void *value;
+};
+
+
+struct msm_ctrl_cmd_old {
+	int timeout_ms;
+	uint16_t type;
+	uint16_t length;
+	void *value;
+	uint16_t status;
+};
+
+struct msm_vfe_evt_msg_old {
+	unsigned short type;	/* 1 == event (RPC), 0 == message (adsp) */
+	unsigned short msg_id;
+	unsigned int len;	/* size in, number of bytes out */
+	unsigned char *data;
+};
+
+enum msm_camera_resp_old {
+	MSM_CAM_RESP_CTRL_OLD,
+	MSM_CAM_RESP_STAT_EVT_MSG_OLD,
+	MSM_CAM_RESP_V4L2_OLD,
+
+	MSM_CAM_RESP_MAX_OLD
+};
+
+/* this one is used to send ctrl/status up to config thread */
+struct msm_stats_event_ctrl {
+	/* 0 - ctrl_cmd from control thread,
+	 * 1 - stats/event kernel,
+	 * 2 - V4L control or read request */
+	enum msm_camera_resp_old resptype;
+	int timeout_ms;
+	struct msm_ctrl_cmd_old ctrl_cmd;
+	/* struct  vfe_event_t  stats_event; */
+	struct msm_vfe_evt_msg_old stats_event;
+};
+
+enum sensor_cfg_old {
+	CFG_SET_MODE_OLD,
+	CFG_SET_EFFECT_OLD,
+	CFG_START_OLD,
+	CFG_PWR_UP_OLD,
+	CFG_PWR_DOWN_OLD,
+	CFG_WRITE_EXPOSURE_GAIN_OLD,
+	CFG_SET_DEFAULT_FOCUS_OLD,
+	CFG_MOVE_FOCUS_OLD,
+	CFG_REGISTER_TO_REAL_GAIN_OLD,
+	CFG_REAL_TO_REGISTER_GAIN_OLD,
+	CFG_SET_FPS_OLD,
+	CFG_SET_PICT_FPS_OLD,
+	CFG_SET_BRIGHTNESS_OLD,
+	CFG_SET_CONTRAST_OLD,
+	CFG_SET_ZOOM_OLD,
+	CFG_SET_EXPOSURE_MODE_OLD,
+	CFG_SET_WB_OLD,
+	CFG_SET_ANTIBANDING_OLD,
+	CFG_SET_EXP_GAIN_OLD,
+	CFG_SET_PICT_EXP_GAIN_OLD,
+	CFG_SET_LENS_SHADING_OLD,
+
+	CFG_GET_PICT_FPS_OLD,
+	CFG_GET_PREV_L_PF_OLD,
+	CFG_GET_PREV_P_PL_OLD,
+	CFG_GET_PICT_L_PF_OLD,
+	CFG_GET_PICT_P_PL_OLD,
+
+	CFG_GET_PICT_MAX_EXP_LC_OLD,
+
+	CFG_MAX_OLD
+};
+
+enum sensor_mode_old {
+	SENSOR_PREVIEW_MODE_OLD = 0,
+	SENSOR_SNAPSHOT_MODE_OLD = 1, 
+	SENSOR_RAW_SNAPSHOT_MODE_OLD = 2,
+};
+
+enum sensor_resolution_old {
+	SENSOR_QTR_SIZE_OLD,
+	SENSOR_FULL_SIZE_OLD,
+	SENSOR_INVALID_SIZE_OLD,
+};
+
+struct sensor_pict_fps_old {
+	uint16_t prevfps;
+	uint16_t pictfps;
+};
+
+struct exp_gain_cfg_old {
+	uint16_t gain;
+	uint32_t line;
+};
+
+enum sensor_move_focus_old {
+  MOVE_NEAR_OLD,
+  MOVE_FAR_OLD
+};
+
+struct focus_cfg_old {
+	int32_t steps;
+	enum sensor_move_focus_old dir;
+};
+
+struct fps_cfg_old {
+	uint16_t f_mult;
+	uint16_t fps_div;
+	uint32_t pict_fps_div;
+};
+
+struct sensor_cfg_data_old {
+	enum sensor_cfg_old  cfgtype;
+	enum sensor_mode_old mode;
+	enum sensor_resolution_old rs;
+
+	union {
+		int8_t effect;
+		uint8_t lens_shading;
+		uint16_t prevl_pf;
+		uint16_t prevp_pl;
+		uint16_t pictl_pf;
+		uint16_t pictp_pl;
+		uint32_t pict_max_exp_lc;
+		uint16_t p_fps;
+		struct sensor_pict_fps_old gfps;
+		struct exp_gain_cfg_old    exp_gain;
+		struct focus_cfg_old       focus;
+		struct fps_cfg_old	       fps;
+	} cfg;
+};
+
+enum msm_pmem_old {
+	MSM_PMEM_OUTPUT1_OLD,
+	MSM_PMEM_OUTPUT2_OLD,
+	MSM_PMEM_OUTPUT1_OUTPUT2_OLD,
+	MSM_PMEM_THUMBAIL_OLD,
+	MSM_PMEM_MAINIMG_OLD,
+	MSM_PMEM_RAW_MAINIMG_OLD,
+	MSM_PMEM_AEC_AWB_OLD,
+	MSM_PMEM_AF_OLD,
+
+	MSM_PMEM_MAX_OLD
+};
+
+struct msm_pmem_info_old {
+	enum msm_pmem_old type;
+	int fd;
+	void *vaddr;
+	uint32_t y_off;
+	uint32_t cbcr_off;
+	uint8_t active;
+};
+
+enum msm_frame_path_old {
+	MSM_FRAME_PREV_1_OLD,
+	MSM_FRAME_PREV_2_OLD,
+	MSM_FRAME_ENC_OLD,
+};
+
+struct msm_frame {
+	enum msm_frame_path_old path;
+	unsigned long buffer;
+	uint32_t y_off;
+	uint32_t cbcr_off;
+	int fd;
+
+	void *cropinfo;
+	int croplen;
+};
+
+enum stat_type_old {
+	STAT_AEAW_OLD,
+	STAT_AF_OLD,
+	STAT_MAX_OLD,
+};
+
+struct msm_stats_buf {
+	enum stat_type_old type;
+	unsigned long buffer;
+	int fd;
+};
+
 #define MSM_CAM_IOCTL_MAGIC 'm'
 
 #define MSM_CAM_IOCTL_GET_SENSOR_INFO \
 	_IOR(MSM_CAM_IOCTL_MAGIC, 1, struct msm_camsensor_info *)
 
 #define MSM_CAM_IOCTL_REGISTER_PMEM \
-	_IOW(MSM_CAM_IOCTL_MAGIC, 2, struct msm_pmem_info *)
+	_IOW(MSM_CAM_IOCTL_MAGIC, 2, struct msm_pmem_info_old *)
 
 #define MSM_CAM_IOCTL_UNREGISTER_PMEM \
 	_IOW(MSM_CAM_IOCTL_MAGIC, 3, unsigned)
 
 #define MSM_CAM_IOCTL_CTRL_COMMAND \
-	_IOW(MSM_CAM_IOCTL_MAGIC, 4, struct msm_ctrl_cmd *)
+	_IOW(MSM_CAM_IOCTL_MAGIC, 4, struct msm_ctrl_cmd_old *)
 
 #define MSM_CAM_IOCTL_CONFIG_VFE  \
 	_IOW(MSM_CAM_IOCTL_MAGIC, 5, struct msm_camera_vfe_cfg_cmd *)
@@ -33,7 +242,7 @@
 	_IOR(MSM_CAM_IOCTL_MAGIC, 7, struct msm_camera_get_frame *)
 
 #define MSM_CAM_IOCTL_ENABLE_VFE \
-	_IOW(MSM_CAM_IOCTL_MAGIC, 8, struct camera_enable_cmd *)
+	_IOW(MSM_CAM_IOCTL_MAGIC, 8, struct camera_enable_cmd_old *)
 
 #define MSM_CAM_IOCTL_CTRL_CMD_DONE \
 	_IOW(MSM_CAM_IOCTL_MAGIC, 9, struct camera_cmd *)
@@ -42,16 +251,16 @@
 	_IOW(MSM_CAM_IOCTL_MAGIC, 10, struct camera_cmd *)
 
 #define MSM_CAM_IOCTL_DISABLE_VFE \
-	_IOW(MSM_CAM_IOCTL_MAGIC, 11, struct camera_enable_cmd *)
+	_IOW(MSM_CAM_IOCTL_MAGIC, 11, struct camera_enable_cmd_old *)
 
 #define MSM_CAM_IOCTL_PAD_REG_RESET2 \
-	_IOW(MSM_CAM_IOCTL_MAGIC, 12, struct camera_enable_cmd *)
+	_IOW(MSM_CAM_IOCTL_MAGIC, 12, struct camera_enable_cmd_old *)
 
 #define MSM_CAM_IOCTL_VFE_APPS_RESET \
-	_IOW(MSM_CAM_IOCTL_MAGIC, 13, struct camera_enable_cmd *)
+	_IOW(MSM_CAM_IOCTL_MAGIC, 13, struct camera_enable_cmd_old *)
 
 #define MSM_CAM_IOCTL_RELEASE_FRAME_BUFFER \
-	_IOW(MSM_CAM_IOCTL_MAGIC, 14, struct camera_enable_cmd *)
+	_IOW(MSM_CAM_IOCTL_MAGIC, 14, struct camera_enable_cmd_old *)
 
 #define MSM_CAM_IOCTL_RELEASE_STATS_BUFFER \
 	_IOW(MSM_CAM_IOCTL_MAGIC, 15, struct msm_stats_buf *)
@@ -60,7 +269,7 @@
 	_IOW(MSM_CAM_IOCTL_MAGIC, 16, struct msm_camera_vfe_cfg_cmd *)
 
 #define MSM_CAM_IOCTL_GET_PICTURE \
-	_IOW(MSM_CAM_IOCTL_MAGIC, 17, struct msm_camera_ctrl_cmd *)
+	_IOW(MSM_CAM_IOCTL_MAGIC, 17, struct msm_camera_ctrl_cmd_old *)
 
 #define MSM_CAM_IOCTL_SET_CROP \
 	_IOW(MSM_CAM_IOCTL_MAGIC, 18, struct crop_info *)
@@ -87,7 +296,7 @@
 	_IO(MSM_CAM_IOCTL_MAGIC, 23)
 
 #define MSM_CAM_IOCTL_CTRL_COMMAND_2 \
-	_IOW(MSM_CAM_IOCTL_MAGIC, 24, struct msm_ctrl_cmd *)
+	_IOW(MSM_CAM_IOCTL_MAGIC, 24, struct msm_ctrl_cmd_old *)
 
 #define MSM_CAM_IOCTL_ENABLE_OUTPUT_IND \
 	_IOW(MSM_CAM_IOCTL_MAGIC, 25, uint32_t *)
@@ -102,6 +311,50 @@
 
 #define MSM_CAM_CTRL_CMD_DONE  0
 #define MSM_CAM_SENSOR_VFE_CMD 1
+
+
+#if defined(CONFIG_SENSOR_M4MO)
+typedef struct{
+    char     category;
+    char     byte;
+    char     value;
+}ioctl_m4mo_info_8bit;
+ 
+ 
+typedef struct{
+    int		category;
+    int		byte;
+	int		value;
+}ioctl_m4mo_info;
+
+typedef struct{
+    int		address;
+    int 	size;
+    char	*value;
+    int 	pgh_magic;
+}ioctl_m4mo_i2c_memory_info; //for M4MO's memory write
+
+
+typedef struct{
+    int address;
+    int value;
+    int codeA;
+    int codeB;
+    int codeC;
+} ioctl_msg_info;
+
+
+#define MSM_CAM_IOCTL_M4MO_I2C_READ_8BIT                    _IOR(MSM_CAM_IOCTL_MAGIC, 40, ioctl_m4mo_info_8bit)
+#define MSM_CAM_IOCTL_M4MO_I2C_WRITE_8BIT                   _IOR(MSM_CAM_IOCTL_MAGIC, 41, ioctl_m4mo_info_8bit)
+#define MSM_CAM_IOCTL_M4MO_I2C_WRITE_16BIT                  _IOW(MSM_CAM_IOCTL_MAGIC, 42, ioctl_m4mo_info)
+#define MSM_CAM_IOCTL_M4MO_I2C_WRITE_32BIT                  _IOW(MSM_CAM_IOCTL_MAGIC, 43, ioctl_m4mo_info)
+#define MSM_CAM_IOCTL_M4MO_I2C_WRITE_CATEGORY_PARAMETER     _IOW(MSM_CAM_IOCTL_MAGIC, 44, ioctl_m4mo_info)
+#define MSM_CAM_IOCTL_M4MO_I2C_WRITE_MEMORY                 _IOW(MSM_CAM_IOCTL_MAGIC, 45, ioctl_m4mo_i2c_memory_info)
+#define MSM_CAM_IOCTL_PGH_COMMAND                           _IOW(MSM_CAM_IOCTL_MAGIC, 46, ioctl_m4mo_info)
+ 
+#define MSM_CAM_IOCTL_PGH_MSG                               _IOW(MSM_CAM_IOCTL_MAGIC, 47, ioctl_msg_info)
+
+#endif //PGH ADDED IOCTLS
 
 /*****************************************************
  *  structure
@@ -138,7 +391,7 @@ struct msm_vfe_evt_msg {
 #define MSM_CAM_RESP_MAX          3
 
 /* this one is used to send ctrl/status up to config thread */
-struct msm_stats_event_ctrl {
+struct msm_stats_event_ctrl_new {
 	/* 0 - ctrl_cmd from control thread,
 	 * 1 - stats/event kernel,
 	 * 2 - V4L control or read request */
@@ -222,20 +475,24 @@ struct msm_camera_cfg_cmd {
 #define CMD_SNAP_BUF_RELEASE		11
 #define CMD_SNAP_BUF_CFG		12
 #define CMD_STATS_DISABLE		13
-#define CMD_STATS_AEC_AWB_ENABLE	14
+#define CMD_STATS_AEC_AWB_ENABLE	19
 #define CMD_STATS_AF_ENABLE		15
 #define CMD_STATS_BUF_RELEASE		16
 #define CMD_STATS_AF_BUF_RELEASE	17
-#define CMD_STATS_ENABLE        18
-#define UPDATE_STATS_INVALID		19
-
+#define CMD_STATS_ENABLE		14
+#define UPDATE_STATS_INVALID		18
 #endif
 
 /* vfe config command: config command(from config thread)*/
-struct msm_vfe_cfg_cmd {
+struct msm_vfe_cfg_cmd_new {
 	int cmd_type;
 	uint16_t length;
 	void *value;
+};
+
+struct camera_enable_cmd_old {
+	char *name;
+	uint16_t length;
 };
 
 #define MAX_CAMERA_ENABLE_NAME_LEN 32
@@ -342,7 +599,7 @@ struct outputCfg {
 
 #endif
 
-struct msm_frame {
+struct msm_frame_new {
 	int path;
 	unsigned long buffer;
 	uint32_t y_off;
@@ -357,7 +614,7 @@ struct msm_frame {
 #define STAT_AF		1
 #define STAT_MAX	2
 
-struct msm_stats_buf {
+struct msm_stats_buf_new {
 	int type;
 	unsigned long buffer;
 	int fd;
@@ -418,8 +675,8 @@ struct msm_snapshot_pp_status {
 #define CFG_GET_PREV_P_PL		23
 #define CFG_GET_PICT_L_PF		24
 #define CFG_GET_PICT_P_PL		25
-#define CFG_GET_AF_MAX_STEPS		26
-#define CFG_GET_PICT_MAX_EXP_LC		27
+#define CFG_GET_AF_MAX_STEPS		41
+#define CFG_GET_PICT_MAX_EXP_LC		26
 #define CFG_I2C_IOCTL_R_OTP	28
 #define CFG_SET_OV_LSC	29 	/*vincent for LSC calibration*/
 #define CFG_SET_SHARPNESS 30
@@ -433,7 +690,7 @@ struct msm_snapshot_pp_status {
 #define CFG_UPDATE_AEC_FOR_LED		38
 #define CFG_SET_FRONT_CAMERA_MODE	39
 #define CFG_SET_QCT_LSC_RAW_CAPTURE 40 /* 20101011 QCT mesh LSC Calibration */
-#define CFG_MAX        			41
+#define CFG_MAX        			27
 
 #define MOVE_NEAR	0
 #define MOVE_FAR	1

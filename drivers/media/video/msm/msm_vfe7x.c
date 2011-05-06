@@ -105,6 +105,7 @@ static void vfe_7x_ops(void *driver_data, unsigned id, size_t len,
 	struct msm_vfe_resp *rp;
 	void *data;
 
+	printk("msm_camera: vfe_7x_ops: %d, %d\n", id, len);
 	len = (id == (uint16_t)-1) ? 0 : len;
 	data = resp->vfe_alloc(sizeof(struct msm_vfe_resp) + len,
 			vfe_syncdata,
