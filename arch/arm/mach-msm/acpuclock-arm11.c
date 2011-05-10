@@ -454,6 +454,8 @@ int acpuclk_set_rate(unsigned long rate, enum setrate_reason reason)
 			}
 			plls_enabled |= 1 << tgt_s->pll;
 		}
+	}
+	if (reason != SETRATE_SWFI) {
 		/* Increase VDD if needed. */
 		if (tgt_s->vdd > cur_s->vdd) {
 			if ((rc = acpuclk_set_vdd_level(tgt_s->vdd)) < 0) {
@@ -498,7 +500,7 @@ int acpuclk_set_rate(unsigned long rate, enum setrate_reason reason)
 		printk(KERN_DEBUG "%s: STEP khz = %u, pll = %d\n",
 			__FUNCTION__, cur_s->a11clk_khz, cur_s->pll);
 #endif
-		if (reason == SETRATE_CPUFREQ && cur_s->pll != ACPU_PLL_TCXO
+		if (cur_s->pll != ACPU_PLL_TCXO
 		    && !(plls_enabled & (1 << cur_s->pll))) {
 			rc = pc_pll_request(cur_s->pll, 1);
 			if (rc < 0) {
