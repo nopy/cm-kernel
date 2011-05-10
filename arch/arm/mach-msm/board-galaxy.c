@@ -71,14 +71,6 @@ static struct android_pmem_platform_data android_pmem_pdata = {
 	.cached = 1,
 };
 
-static struct android_pmem_platform_data android_pmem_camera_pdata = {
-	.name = "pmem_camera",
-	.start = MSM_PMEM_CAMERA_BASE,
-	.size = MSM_PMEM_CAMERA_SIZE,
-	.no_allocator = 0,
-	.cached = 1,
-};
-
 static struct android_pmem_platform_data android_pmem_adsp_pdata = {
 	.name = "pmem_adsp",
 	.start = MSM_PMEM_ADSP_BASE,
@@ -98,12 +90,6 @@ static struct platform_device android_pmem_adsp_device = {
 	.name = "android_pmem",
 	.id = 1,
 	.dev = { .platform_data = &android_pmem_adsp_pdata },
-};
-
-static struct platform_device android_pmem_camera_device = {
-	.name = "android_pmem",
-	.id = 2,
-	.dev = { .platform_data = &android_pmem_camera_pdata },
 };
 
 static struct resource ram_console_resource[] = {
