@@ -1221,7 +1221,7 @@ static uint8_t new_val = GALAXY_DEFAULT_BACKLIGHT_BRIGHTNESS;
 static uint8_t last_val = GALAXY_DEFAULT_BACKLIGHT_BRIGHTNESS;
 struct msm_mddi_client_data *g_client_data = NULL;
 static DEFINE_MUTEX(panel_lock);
-static struct work_struct brightness_delayed_work;
+static struct delayed_work brightness_delayed_work;
 static DEFINE_SPINLOCK(brightness_lock);
 
 #define GPIOSEL_VWAKEINT (1U << 0)
@@ -1298,8 +1298,6 @@ static void toshiba_bridge_wakeup(struct msm_mddi_client_data *client_data)
 {
 	printk("[LCD] toshiba_bridge_wakeup\n");
 	galaxy_process_mddi_table(client_data, mddi_toshiba_wakeup_first_table, ARRAY_SIZE(mddi_toshiba_wakeup_first_table));
-	//mddi_wait(200);
-	msleep(200);
 	galaxy_process_mddi_table(client_data, mddi_toshiba_wakeup_second_table, ARRAY_SIZE(mddi_toshiba_wakeup_second_table));
 }
 
@@ -1415,6 +1413,11 @@ static void galaxy_brightness_set_work(struct work_struct *work_ptr)
 	unsigned long flags;
 	uint8_t val;
 
+	if (galaxy_backlight_off) {
+		dprintk("galaxy_panel: backlight set, panel is off , deferring\n");
+		return;
+	}
+
 	spin_lock_irqsave(&brightness_lock, flags);
 	val = new_val;
 	spin_unlock_irqrestore(&brightness_lock, flags);
@@ -1427,13 +1430,19 @@ static void galaxy_brightness_set_work(struct work_struct *work_ptr)
 static void galaxy_brightness_set(struct led_classdev *led_cdev, enum led_brightness val)
 {
 	unsigned long flags;
+	unsigned long delay = 0;
 	led_cdev->brightness = val;
 
 	spin_lock_irqsave(&brightness_lock, flags);
 	new_val = val;
 	spin_unlock_irqrestore(&brightness_lock, flags);
 
-	schedule_work(&brightness_delayed_work);
+
+	if (galaxy_backlight_off)
+		delay = 100;
+	
+	cancel_delayed_work_sync(&brightness_delayed_work);
+	schedule_delayed_work(&brightness_delayed_work, delay);
 }
 
 static void galaxy_mddi_power_client(struct msm_mddi_client_data *client_data,
@@ -1461,6 +1470,10 @@ static int galaxy_mddi_toshiba_client_init(
 	mutex_lock(&panel_lock);
 	// Bridge Wake Up
 	toshiba_bridge_wakeup(client_data);
+	msleep(25);
+	smd_hvga_oled_start_wakeup(client_data);
+	smd_hvga_oled_power_wakeup(client_data);
+	smd_hvga_oled_init_wakeup(client_data);
 
 	mutex_unlock(&panel_lock);
 	return 0;
@@ -1489,12 +1502,6 @@ static int galaxy_mddi_panel_unblank(
 		goto done;	
 	}
 
-	// Some random sleeps seem to fix panel wake-up issue
-	smd_hvga_oled_start_wakeup(client_data);
-	msleep(25);
-	smd_hvga_oled_power_wakeup(client_data);
-	msleep(25);
-	smd_hvga_oled_init_wakeup(client_data);
 	msleep(25);
 	smd_hvga_oled_display_on_wakeup(client_data);
 	msleep(25);
@@ -1633,7 +1640,7 @@ static int __init galaxy_init_panel(void) {
 		pr_err("galaxy_init_panel:platform_device_register msm_device_mddi0 failed\n");
 		return rc;
 	}
-	INIT_WORK(&brightness_delayed_work, galaxy_brightness_set_work);
+	INIT_DELAYED_WORK(&brightness_delayed_work, galaxy_brightness_set_work);
 
 	platform_device_register(&galaxy_backlight);
 	return platform_driver_register(&galaxy_backlight_driver);
