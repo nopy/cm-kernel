@@ -857,7 +857,7 @@ int max9877_suspend(struct i2c_client *client, pm_message_t mesg)
 	printk("max9877_suspend\n");
 	spk_vol_mute = hpl_vol_mute = hpr_vol_mute = 0;
 	// This should be cleaned :/ *really*
-	if(1) { //!audio_enabled && !is_incallMode) {
+	if(!is_incallMode) {
 		max9877_i2c_write(MAX9877_SPKVOL_CTRL,spk_vol_mute);
 		max9877_i2c_write(MAX9877_LEFT_HPHVOL_CTRL,hpl_vol_mute);
 		max9877_i2c_write(MAX9877_RIGHT_HPHVOL_CTRL,hpr_vol_mute);
