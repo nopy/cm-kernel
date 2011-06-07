@@ -1680,6 +1680,48 @@ static int msm_axi_config(struct msm_sync *sync, void __user *arg)
 	return 0;
 }
 
+#if 1//PGH TEMP
+static int msm_camera_pict_snapshot_pending(struct msm_sync *sync)
+{
+   unsigned long flags;
+    int yes = 0;
+
+#if 1 //PJY : temporally blocked
+	struct msm_device_queue *__q = (&sync->pict_q);
+
+        struct msm_queue_cmd *qcmd = NULL;
+re_pending:
+ spin_lock_irqsave(&__q->lock, flags);
+
+        if (!list_empty(&__q->list)) {
+
+                qcmd =
+                  list_first_entry(&__q->list,
+                               struct msm_queue_cmd, list_pict );
+          CDBG("qcmd->type = %d\n",qcmd->type);
+
+                if (qcmd) {
+                     if (qcmd->type  == MSM_CAM_Q_VFE_MSG)
+                           yes = 1;
+                } else {
+                        m4mo_i2c_write_8bit_external(0x0C, 0x05, 0x01);
+         }
+       } else {
+        //      CDBG("msm_sync.pict_frame_q list is empty\n");
+  }
+       spin_unlock_irqrestore(&__q->lock, flags);
+    if(!yes) {
+              m4mo_i2c_write_8bit_external(0x0C, 0x05, 0x01);
+         msleep(10);
+             goto re_pending;
+        }
+#endif
+
+        CDBG("msm_camera_pict_pending, yes = %d\n", yes);
+       return yes;
+}
+#endif//PGH TEMP
+
 static int __msm_get_pic(struct msm_sync *sync, struct msm_ctrl_cmd *ctrl)
 {
 	int rc = 0;
@@ -1692,7 +1734,8 @@ static int __msm_get_pic(struct msm_sync *sync, struct msm_ctrl_cmd *ctrl)
 	printk("__msm_get_pic: wait for event\n");
 	rc = wait_event_interruptible_timeout(
 			sync->pict_q.wait,
-			!list_empty_careful(&sync->pict_q.list),
+			//!list_empty_careful(&sync->pict_q.list),
+			msm_camera_pict_snapshot_pending(sync),
 			msecs_to_jiffies(tm));
 	CDBG("__msm_get_pic: got wake-up)\n");
 	if (list_empty_careful(&sync->pict_q.list)) {
@@ -1723,8 +1766,8 @@ static int __msm_get_pic(struct msm_sync *sync, struct msm_ctrl_cmd *ctrl)
 		ctrl->type = q->type;
 		ctrl->status = q->status;
 	} else {
-		ctrl->type = -1;
-		ctrl->status = -1;
+		ctrl->type = 0xFFFF;
+		ctrl->status = 0xFFFF;
 	}
 
 	free_qcmd(qcmd);
